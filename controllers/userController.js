@@ -30,7 +30,7 @@ export async function register (req, res) {
 }
 
 export async function logout (req, res) {
-    //TODO Logout
+    res.clearCookie('access_token').json({ message: 'Logout successfully.'})
 }
 
 export async function getUser (req, res) {
