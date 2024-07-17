@@ -1,20 +1,20 @@
-import { Schema, model } from "mongoose";
+import { Schema, model } from 'mongoose'
 import uniqueValidator from 'mongoose-unique-validator'
 
 const userSchema = new Schema({
-    username: {
-        type: String,
-        unique: true
-    },
-    password: String
+  username: {
+    type: String,
+    unique: true
+  },
+  password: String
 })
 
 userSchema.set('toJSON', {
-    transform: (document, returnedObject) => {
-        returnedObject.id = returnedObject._id
-        delete returnedObject._id
-        delete returnedObject.__v
-    }
+  transform: (document, returnedObject) => {
+    returnedObject.id = returnedObject._id
+    delete returnedObject._id
+    delete returnedObject.__v
+  }
 })
 
 userSchema.plugin(uniqueValidator)
