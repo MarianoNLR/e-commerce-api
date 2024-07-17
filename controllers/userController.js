@@ -38,12 +38,12 @@ export async function login (req, res) {
 export async function register (req, res) {
   const { username, password, confirmPassword } = req.body
 
-  if (password !== confirmPassword) return res.status(401).json({ message: 'Passwords must match.' })
+  if (password !== confirmPassword) return res.status(400).json({ message: 'Passwords must match.' })
 
   try {
     const userExists = await User.findOne({ username })
 
-    if (userExists) return res.status(401).json({ message: 'Username already existes.' })
+    if (userExists) return res.status(400).json({ message: 'Username already exists.' })
 
     const hashedPassword = await bcrypt.hash(password, 10)
     const newUser = new User({ username, password: hashedPassword })
@@ -52,7 +52,7 @@ export async function register (req, res) {
 
     return res.json({ username, password: hashedPassword })
   } catch (error) {
-    res.status(500).send(error)
+    return res.status(500).json({ error })
   }
 }
 
@@ -78,8 +78,7 @@ export async function getUser (req, res) {
 
 export async function getAllUsers (req, res) {
   try {
-    const users = User.find()
-    console.log(users)
+    const users = await User.find({})
 
     return res.status(200).json({ users })
   } catch (error) {
