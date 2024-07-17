@@ -19,6 +19,6 @@ userSchema.set('toJSON', {
 
 userSchema.plugin(uniqueValidator)
 
-const User = model('User', userSchema)
+const User = model('users', userSchema)
 
 export default User
