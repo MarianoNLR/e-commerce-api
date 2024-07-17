@@ -6,6 +6,9 @@ const productSchema = new Schema({
   },
   price: {
     type: Number
+  },
+  quantity: {
+    type: Number
   }
 })
 
@@ -17,6 +20,6 @@ productSchema.set('toJSON', {
   }
 })
 
-const Product = model('Product', productSchema)
+const Product = model('products', productSchema)
 
 export default Product
