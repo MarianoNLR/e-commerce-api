@@ -8,3 +8,7 @@ export async function add (req, res) {
 export async function getCart (req, res) {
   // TODO
 }
+
+export async function deleteItem (req, res) {
+  // TODO
+}
