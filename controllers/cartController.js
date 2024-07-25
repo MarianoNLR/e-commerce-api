@@ -24,10 +24,15 @@ export async function add (req, res) {
   }
   await userCart.save()
   // TODO UPDATE TOTAL PRICE
+
+  return res.status(201).json({ userCart })
 }
 
 export async function getCart (req, res) {
-  // TODO
+  const user = req.session.user
+  const cart = await Cart.find({ user: user.userId })
+
+  return res.status(200).json({ cart })
 }
 
 export async function deleteItem (req, res) {
