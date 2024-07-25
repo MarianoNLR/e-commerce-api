@@ -4,15 +4,15 @@ import { parse } from 'cookie'
 const { JWT_SECRET } = process.env
 
 export const authUser = (req, res, next) => {
-    const token = req.cooikes.access_token
+  const token = req.cookies.access_token
 
-    req.session = {user: null}
+  req.session = { user: null }
 
-    try {
-        const data = jwt.verify(token, JWT_SECRET)
-        req.session.user = data
-    } catch (error) {}
+  try {
+    const data = jwt.verify(token, JWT_SECRET)
+    req.session.user = data
+  } catch (error) {}
 
-    console.log(req.session.user)
-    next()
+  console.log(req.session.user)
+  next()
 }
