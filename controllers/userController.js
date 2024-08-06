@@ -75,6 +75,16 @@ export async function getUser (req, res) {
   }
 }
 
+export async function getMe (req, res) {
+  const { user } = req.session
+  const response = await User.findById(user.userId)
+
+  if (response) {
+    return res.status(200).json({ user: response })
+  }
+  return res.status(401).json({ error: 'Not Authorized' })
+}
+
 export async function getAllUsers (req, res) {
   try {
     const users = await User.find({})
