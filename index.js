@@ -1,16 +1,25 @@
 import express from 'express'
+import cors from 'cors'
 import userRouter from './routes/userRoutes.js'
 import bodyParser from 'body-parser'
+import cookieParser from 'cookie-parser'
 import './mongo.js'
+import productRouter from './routes/productRoutes.js'
 
 const app = express()
 
 const PORT = process.env.PORT ?? 3000
 
+app.use(cookieParser())
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}))
 
 app.use('/users', userRouter)
+app.use('/products', productRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
