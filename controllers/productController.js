@@ -1,6 +1,10 @@
 import Product from '../models/Product.js'
 import jwt from 'jsonwebtoken'
 import 'dotenv/config'
+import path, { extname } from 'path'
+import fs from 'fs'
+
+const urlBase = 'http://localhost:3000/uploads/'
 
 const { JWT_SECRET } = process.env
 
@@ -30,9 +34,19 @@ export async function getById (req, res) {
 
 export async function add (req, res) {
   const { name, price, quantity } = req.body
+  const { file } = req
+  const fileExtension = extname(file.originalname)
+  const fileName = file.filename.split(fileExtension)[0]
+  const fileFullName = `${fileName}${fileExtension}`
 
   try {
-    const newProduct = new Product({ name, price, quantity })
+    const newProduct = new Product(
+      {
+        name,
+        price,
+        quantity,
+        imageURL: fileFullName
+      })
     await newProduct.save()
 
     return res.status(201).json({ newProduct })
