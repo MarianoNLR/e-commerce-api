@@ -7,6 +7,7 @@ import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import './mongo.js'
 import productRouter from './routes/productRoutes.js'
+import cartRouter from './routes/cartRoutes.js'
 
 const app = express()
 
@@ -29,6 +30,7 @@ app.use('/uploads', express.static(imageDirectory))
 
 app.use('/users', userRouter)
 app.use('/products', productRouter)
+app.use('/cart', cartRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
