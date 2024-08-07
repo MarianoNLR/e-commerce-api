@@ -3,6 +3,8 @@ import cors from 'cors'
 import userRouter from './routes/userRoutes.js'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 import './mongo.js'
 import productRouter from './routes/productRoutes.js'
 
@@ -17,6 +19,13 @@ app.use(cors({
   origin: 'http://localhost:5173',
   credentials: true
 }))
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const imageDirectory = join(__dirname, 'uploads')
+
+app.use('/uploads', express.static(imageDirectory))
 
 app.use('/users', userRouter)
 app.use('/products', productRouter)
