@@ -33,7 +33,7 @@ export async function getById (req, res) {
 }
 
 export async function add (req, res) {
-  const { name, price, quantity } = req.body
+  const { name, price, quantity, description } = req.body
   const { file } = req
   const fileExtension = extname(file.originalname)
   const fileName = file.filename.split(fileExtension)[0]
@@ -45,7 +45,8 @@ export async function add (req, res) {
         name,
         price,
         quantity,
-        imageURL: fileFullName
+        imageURL: fileFullName,
+        description
       })
     await newProduct.save()
 
