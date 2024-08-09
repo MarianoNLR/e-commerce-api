@@ -30,6 +30,6 @@ productSchema.set('toJSON', {
   }
 })
 
-const Product = model('products', productSchema)
+const Product = model('Product', productSchema)
 
 export default Product
