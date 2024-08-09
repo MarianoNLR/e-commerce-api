@@ -5,6 +5,6 @@ import { authUser } from '../middlewares/authUser.js'
 const cartRouter = express.Router()
 
 cartRouter.post('/', authUser, add)
-cartRouter.get('/:id', authUser, getCart)
+cartRouter.get('/:userId', authUser, getCart)
 
 export default cartRouter
