@@ -38,8 +38,8 @@ export async function add (req, res) {
 
 export async function getCart (req, res) {
   const user = req.session.user
-  const cart = await Cart.find({ user: user.userId })
-
+  const [cart] = await Cart.find({ user: user.userId }).populate('items.product')
+  console.log(cart)
   return res.status(200).json({ cart })
 }
 
