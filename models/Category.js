@@ -14,6 +14,6 @@ categorySchema.set('toJSON', {
   }
 })
 
-const Category = model('categories', categorySchema)
+const Category = model('Category', categorySchema)
 
 export default Category
