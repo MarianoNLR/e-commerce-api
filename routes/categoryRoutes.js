@@ -1,8 +1,9 @@
 import express from 'express'
-import { getAll } from '../controllers/categoryController.js'
+import { getAll, addCategory } from '../controllers/categoryController.js'
 
 const categoryRouter = express.Router()
 
-categoryRouter.get('/category', getAll)
+categoryRouter.get('/', getAll)
+categoryRouter.post('/', addCategory)
 
 export default categoryRouter
