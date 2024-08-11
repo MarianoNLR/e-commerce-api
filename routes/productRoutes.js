@@ -38,8 +38,9 @@ productRouter.post('/', (req, res, next) => {
   })
 })
 productRouter.delete('/:id', authUser, deleteProduct)
+productRouter.get('/product/:productId', getById)
+productRouter.get('/:categoryId', getAll)
 productRouter.get('/', getAll)
-productRouter.get('/:productId', getById)
 productRouter.patch('/:id', authUser, update)
 
 export default productRouter
