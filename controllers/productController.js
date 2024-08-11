@@ -1,19 +1,23 @@
 import Product from '../models/Product.js'
-import jwt from 'jsonwebtoken'
 import 'dotenv/config'
 import path, { extname } from 'path'
-import fs from 'fs'
-
-const urlBase = 'http://localhost:3000/uploads/'
-
-const { JWT_SECRET } = process.env
 
 export async function getAll (req, res) {
-  try {
-    const products = await Product.find({})
+  const { categoryId } = req.params
+  const filters = {}
 
+  if (categoryId) {
+    filters.categoryId = categoryId
+  }
+
+  try {
+    const products = await Product.find(filters)
+      .populate('categoryId')
+
+    console.log(products)
     return res.status(200).json({ products })
   } catch (error) {
+    console.log(error)
     return res.status(500).json({ error })
   }
 }
