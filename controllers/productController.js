@@ -14,7 +14,25 @@ export async function getAll (req, res) {
     const products = await Product.find(filters)
       .populate('categoryId')
 
-    console.log(products)
+    return res.status(200).json({ products })
+  } catch (error) {
+    console.log(error)
+    return res.status(500).json({ error })
+  }
+}
+
+export async function getBySearch (req, res) {
+  const { q } = req.query
+  const filters = {}
+  console.log(q)
+  if (q) {
+    filters.name = { $regex: q, $options: 'i' }
+  }
+
+  try {
+    const products = await Product.find(filters)
+      .populate('categoryId')
+
     return res.status(200).json({ products })
   } catch (error) {
     console.log(error)
