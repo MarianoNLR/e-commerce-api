@@ -38,6 +38,6 @@ app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on http://localhost:${PORT}`)
 })
