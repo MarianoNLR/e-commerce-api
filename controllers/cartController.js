@@ -15,7 +15,6 @@ export async function add (req, res) {
   }
   // Control if item already exists
   const itemExists = userCart.items.findIndex(item => item.product.toString() === productId)
-
   // If index is -1 item does not exist in cart
   if (itemExists === -1) {
     userCart.items.push({ product: productId, quantity })
@@ -26,7 +25,7 @@ export async function add (req, res) {
   let newTotalPrice = 0
   for (let i = 0; i < userCart.items.length; i++) {
     const item = await Product.findById(userCart.items[i].product)
-    newTotalPrice += item.price * quantity
+    newTotalPrice += item.price * userCart.items[i].quantity
   }
 
   userCart.totalPrice = newTotalPrice
