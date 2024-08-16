@@ -24,8 +24,9 @@ export async function login (req, res) {
     const token = jwt.sign({ userId: user._id, username: user.username, password: user.password }, JWT_SECRET)
 
     res.cookie('access_token', token, {
-      httpOnlu: true,
-      secure: false
+      httpOnly: true,
+      secure: true,
+      sameSite: 'None'
     })
 
     return res.status(200).json({ user, token })
