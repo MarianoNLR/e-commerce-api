@@ -1,5 +1,5 @@
 import express from 'express'
-import { add, deleteProduct, getAll, getById, update } from '../controllers/productController.js'
+import { add, deleteProduct, getAll, getById, update, getBySearch } from '../controllers/productController.js'
 import { authUser } from '../middlewares/authUser.js'
 import { dirname, join, extname } from 'path'
 import { fileURLToPath } from 'url'
@@ -39,6 +39,7 @@ productRouter.post('/', (req, res, next) => {
 })
 productRouter.delete('/:id', authUser, deleteProduct)
 productRouter.get('/product/:productId', getById)
+productRouter.get('/search/', getBySearch)
 productRouter.get('/:categoryId', getAll)
 productRouter.get('/', getAll)
 productRouter.patch('/:id', authUser, update)
