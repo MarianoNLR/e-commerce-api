@@ -26,7 +26,7 @@ export async function login (req, res) {
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'None'
+      sameSite: 'Lax'
     })
 
     return res.status(200).json({ user, token })
