@@ -23,11 +23,11 @@ export async function login (req, res) {
 
     const token = jwt.sign({ userId: user._id, username: user.username, password: user.password }, JWT_SECRET)
 
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Lax'
-    })
+    // res.cookie('access_token', token, {
+    //   httpOnly: true,
+    //   secure: true,
+    //   sameSite: 'None'
+    // })
 
     return res.status(200).json({ user, token })
   } catch (error) {
@@ -77,8 +77,8 @@ export async function getUser (req, res) {
 }
 
 export async function getMe (req, res) {
-  const { user } = req.session
-  const response = await User.findById(user.userId)
+  const userId = req.userId
+  const response = await User.findById(userId)
 
   if (response) {
     return res.status(200).json({ user: response })

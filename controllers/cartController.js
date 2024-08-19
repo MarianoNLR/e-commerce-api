@@ -4,12 +4,13 @@ import Product from '../models/Product.js'
 
 export async function add (req, res) {
   // Create cart if it's first item
-  const user = req.session.user
+  // const user = req.session.user
+  const userId = req.userId
   const { productId, quantity } = req.body.data
-  let [userCart] = await Cart.find({ user: user.userId })
+  let [userCart] = await Cart.find({ user: userId })
 
   if (!userCart) {
-    const newCart = new Cart({ user: user.userId, items: [], totalPrice: 0 })
+    const newCart = new Cart({ user: userId, items: [], totalPrice: 0 })
     userCart = await newCart.save()
     console.log('Crea un carrito nuevo')
   }
@@ -35,18 +36,19 @@ export async function add (req, res) {
 }
 
 export async function getCart (req, res) {
-  const user = req.session.user
-  const [cart] = await Cart.find({ user: user.userId }).populate('items.product')
-  console.log(cart)
+  // const user = req.session.user
+  const { userId } = req.params
+  const [cart] = await Cart.find({ user: userId }).populate('items.product')
+  console.log('cart: ', cart)
   return res.status(200).json({ cart })
 }
 
 export async function deleteItem (req, res) {
-  const user = req.session.user
+  const userId = req.userId
   try {
     const { product: productId } = req.params
 
-    const [cart] = await Cart.find({ user: user.userId }).populate('items.product')
+    const [cart] = await Cart.find({ user: userId }).populate('items.product')
     let totalPrice = cart.totalPrice
     for (let i = 0; i < cart.items.length; i++) {
       const item = cart.items[i]
@@ -59,7 +61,7 @@ export async function deleteItem (req, res) {
     }
     console.log(cart.items)
     cart.totalPrice = totalPrice
-    const afterUpdate = await Cart.findOneAndUpdate({ user: user.userId }, { items: cart.items, totalPrice }, {
+    const afterUpdate = await Cart.findOneAndUpdate({ user: userId }, { items: cart.items, totalPrice }, {
       new: true
     })
 
