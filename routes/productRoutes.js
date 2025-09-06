@@ -29,9 +29,10 @@ const multerUpload = multer({
 const productRouter = express.Router()
 
 productRouter.post('/', (req, res, next) => {
-  multerUpload.single('image')(req, res, (err) => {
+  console.log('HOLAA')
+  multerUpload.single('file')(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ error: err.message })
+      res.status(400).json({ error: err.message })
     }
 
     add(req, res)

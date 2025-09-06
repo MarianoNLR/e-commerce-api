@@ -36,7 +36,7 @@ export async function login (req, res) {
 }
 
 export async function register (req, res) {
-  const { username, password, confirmPassword } = req.body
+  const { username, password, confirmPassword } = req.body.data
 
   if (password !== confirmPassword) return res.status(400).json({ message: 'Passwords must match.' })
 

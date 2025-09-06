@@ -55,8 +55,9 @@ export async function getById (req, res) {
 }
 
 export async function add (req, res) {
-  const { name, price, quantity, description } = req.body
+  const { name, price, quantity, categoryId, description } = req.body
   const { file } = req
+  console.log(req.file)
   const fileExtension = extname(file.originalname)
   const fileName = file.filename.split(fileExtension)[0]
   const fileFullName = `${fileName}${fileExtension}`
@@ -67,8 +68,9 @@ export async function add (req, res) {
         name,
         price,
         quantity,
-        imageURL: fileFullName,
-        description
+        categoryId,
+        description,
+        imageURL: fileFullName
       })
     await newProduct.save()
 
@@ -103,5 +105,20 @@ export async function deleteProduct (req, res) {
     return res.status(200).json({ message: 'Product has been removed.' })
   } catch (error) {
     return res.status(500).json({ error })
+  }
+}
+
+export async function updateProductStockPurchase (productId, quantity) {
+  try {
+    const product = await Product.findById(productId)
+    if (product) {
+      product.quantity -= quantity
+      await product.save()
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('It seems there was an error with product stock:', error)
+    return false
   }
 }

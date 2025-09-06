@@ -39,7 +39,6 @@ export async function getCart (req, res) {
   // const user = req.session.user
   const { userId } = req.params
   const [cart] = await Cart.find({ user: userId }).populate('items.product')
-  console.log('cart: ', cart)
   return res.status(200).json({ cart })
 }
 
@@ -59,7 +58,6 @@ export async function deleteItem (req, res) {
         break
       }
     }
-    console.log(cart.items)
     cart.totalPrice = totalPrice
     const afterUpdate = await Cart.findOneAndUpdate({ user: userId }, { items: cart.items, totalPrice }, {
       new: true
