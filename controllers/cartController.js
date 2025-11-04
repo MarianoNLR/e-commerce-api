@@ -8,7 +8,8 @@ export async function add (req, res) {
   const userId = req.userId
   const { productId, quantity } = req.body.data
   let [userCart] = await Cart.find({ user: userId })
-
+  console.log(req)
+  console.log(userCart)
   if (!userCart) {
     const newCart = new Cart({ user: userId, items: [], totalPrice: 0 })
     userCart = await newCart.save()
@@ -26,13 +27,14 @@ export async function add (req, res) {
   let newTotalPrice = 0
   for (let i = 0; i < userCart.items.length; i++) {
     const item = await Product.findById(userCart.items[i].product)
+    console.log(item)
     newTotalPrice += item.price * userCart.items[i].quantity
   }
 
   userCart.totalPrice = newTotalPrice
   await userCart.save()
-
-  return res.status(201).json({ userCart })
+  const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
+  return res.status(201).json({ cart: updatedCart })
 }
 
 export async function getCart (req, res) {
@@ -59,11 +61,11 @@ export async function deleteItem (req, res) {
       }
     }
     cart.totalPrice = totalPrice
-    const afterUpdate = await Cart.findOneAndUpdate({ user: userId }, { items: cart.items, totalPrice }, {
+    await Cart.findOneAndUpdate({ user: userId }, { items: cart.items, totalPrice }, {
       new: true
     })
-
-    return res.status(200).json({ cart: afterUpdate })
+    const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
+    return res.status(200).json({ cart: updatedCart })
   } catch (error) {
     return res.status(500).json({ error })
   }

@@ -1,9 +1,9 @@
 import jwt, { decode } from 'jsonwebtoken'
 import { parse } from 'cookie'
-
+import User from '../models/User.js'
 const { JWT_SECRET } = process.env
 
-export const authUser = (req, res, next) => {
+export const authUser = async (req, res, next) => {
   const authorization = req.get('authorization')
   let token = ''
   if (authorization && authorization.toLowerCase().startsWith('bearer')) {
@@ -17,6 +17,7 @@ export const authUser = (req, res, next) => {
 
   const { userId } = decodedToken
   req.userId = userId
+  req.user = await User.findById(userId).select('-password')
   next()
 
   // To use with cookies

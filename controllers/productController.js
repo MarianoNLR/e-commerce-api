@@ -11,7 +11,7 @@ export async function getAll (req, res) {
   }
 
   try {
-    const products = await Product.find(filters)
+    const products = await Product.find(filters).collation({ locale: 'es', strength: 2 }).sort({ name: 1 })
       .populate('categoryId')
 
     return res.status(200).json({ products })
@@ -93,9 +93,26 @@ export async function update (req, res) {
   }
 }
 
-export async function deleteProduct (req, res) {
+export async function updateProductStock (req, res) {
+  console.log(req)
   const { productId } = req.params
+  const { stock } = req.body
+  console.log(stock)
 
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(productId, { quantity: stock }, { new: true })
+
+    if (!updatedProduct) return res.status(404).json({ message: 'Product not found.' })
+
+    return res.status(200).json({ result: updatedProduct })
+  } catch (error) {
+    return res.status(500).json({ error })
+  }
+}
+
+export async function deleteProduct (req, res) {
+  const { id: productId } = req.params
+  console.log(productId)
   const productExists = await Product.findById(productId)
 
   if (!productExists) return res.status(404).json({ message: 'Product not found.' })

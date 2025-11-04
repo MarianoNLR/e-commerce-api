@@ -10,6 +10,7 @@ import productRouter from './routes/productRoutes.js'
 import cartRouter from './routes/cartRoutes.js'
 import categoryRouter from './routes/categoryRoutes.js'
 import checkoutRouter from './routes/checkoutRoutes.js'
+import orderRouter from './routes/orderRoutes.js'
 
 const app = express()
 
@@ -35,6 +36,7 @@ app.use('/products', productRouter)
 app.use('/cart', cartRouter)
 app.use('/category', categoryRouter)
 app.use('/checkout', checkoutRouter)
+app.use('/orders', orderRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')

@@ -1,6 +1,8 @@
 import express from 'express'
-import { add, deleteProduct, getAll, getById, update, getBySearch } from '../controllers/productController.js'
+import { add, deleteProduct, getAll, getById, update, getBySearch, updateProductStock } from '../controllers/productController.js'
 import { authUser } from '../middlewares/authUser.js'
+import { checkAbility } from '../middlewares/checkAbility.js'
+import { defineAbilityMiddleware } from '../middlewares/ability.js'
 import { dirname, join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import multer from 'multer'
@@ -38,11 +40,13 @@ productRouter.post('/', (req, res, next) => {
     add(req, res)
   })
 })
-productRouter.delete('/:id', authUser, deleteProduct)
+productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), deleteProduct)
 productRouter.get('/product/:productId', getById)
 productRouter.get('/search/', getBySearch)
 productRouter.get('/:categoryId', getAll)
 productRouter.get('/', getAll)
-productRouter.patch('/:id', authUser, update)
+productRouter.patch('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), update)
+productRouter.patch('/stock/:productId', updateProductStock)
+productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 
 export default productRouter

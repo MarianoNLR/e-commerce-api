@@ -23,6 +23,11 @@ const orderSchema = new Schema({
   },
   payment_id: {
     type: String
+  },
+  status: {
+    type: String,
+    enum: ['pending_payment', 'paid', 'shipped', 'cancelled'],
+    default: 'pending_payment'
   }
 }, { timestamps: true })
 

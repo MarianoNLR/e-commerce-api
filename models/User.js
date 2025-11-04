@@ -7,7 +7,11 @@ const userSchema = new Schema({
     unique: true
   },
   password: String,
-  role: String
+  role: {
+    type: String,
+    enum: ['user', 'moderator', 'admin'],
+    default: 'user'
+  }
 })
 
 userSchema.set('toJSON', {
@@ -20,6 +24,6 @@ userSchema.set('toJSON', {
 
 userSchema.plugin(uniqueValidator)
 
-const User = model('users', userSchema)
+const User = model('User', userSchema)
 
 export default User
