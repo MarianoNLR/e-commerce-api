@@ -11,7 +11,7 @@ export async function getAll (req, res) {
   }
 
   try {
-    const products = await Product.find(filters).collation({ locale: 'es', strength: 2 }).sort({ name: 1 })
+    const products = await Product.find(filters).collation({ locale: 'es', strength: 2 }).sort({ price: -1 })
       .populate('categoryId')
 
     return res.status(200).json({ products })
