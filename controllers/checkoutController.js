@@ -19,7 +19,7 @@ export async function setPreferences (req, res) {
   const [cart] = await Cart.find({ user: userId }).populate('items.product')
   const preference = new Preference(client)
   const items = []
-
+  console.log('Shipment Info: ', req.body.shipping_info)
   if (!cart) return res.status(404).json({ error: 'Cart not found.' })
 
   console.log(cart.items[0].product)
@@ -42,7 +42,7 @@ export async function setPreferences (req, res) {
           pending: 'https://google.com'
         },
         auto_return: 'all',
-        notification_url: 'https://4743dded3cc5.ngrok-free.app/checkout/webhook',
+        notification_url: 'https://08f8ebfddb29.ngrok-free.app/checkout/webhook',
         external_reference: { userId, orderId: currentOrder.id } // Probar enviar objeto con ID del usuario que realiza la compra y orderID
       }
     })

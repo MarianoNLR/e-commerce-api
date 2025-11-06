@@ -101,6 +101,8 @@ export async function updateOrder (req, res) {
 
 export async function createOrder (req, res) {
   try {
+    const { shipping_info: shippingInfo } = req.body
+    console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
     const [cartUser] = await Cart.find({ user: req.userId }).populate('items.product')
     if (!cartUser) {
       console.error('Cart not found.')
@@ -117,7 +119,8 @@ export async function createOrder (req, res) {
     const newOrder = await Order.create({
       user: req.userId,
       products: cartUser.items,
-      total: cartUser.totalPrice
+      total: cartUser.totalPrice,
+      shipping_info: shippingInfo
     })
 
     await Cart.findOneAndDelete({ user: req.userId })
