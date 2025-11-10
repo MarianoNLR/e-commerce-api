@@ -6,11 +6,25 @@ const userSchema = new Schema({
     type: String,
     unique: true
   },
+  name: {
+    type: String
+  },
+  lastName: {
+    type: String
+  },
+  email: {
+    type: String,
+    unique: true
+  },
   password: String,
   role: {
     type: String,
     enum: ['user', 'moderator', 'admin'],
     default: 'user'
+  },
+  googleId: {
+    type: String,
+    unique: true
   }
 })
 
