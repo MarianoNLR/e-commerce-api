@@ -21,7 +21,7 @@ export async function login (req, res) {
       return res.status(401).json({ message: 'Username or password incorrect.' })
     }
 
-    const token = jwt.sign({ userId: user._id, username: user.username, password: user.password }, JWT_SECRET)
+    const token = jwt.sign({ userId: user._id}, JWT_SECRET)
 
     // res.cookie('access_token', token, {
     //   httpOnly: true,
@@ -29,10 +29,23 @@ export async function login (req, res) {
     //   sameSite: 'None'
     // })
 
-    return res.status(200).json({ user, token })
+    return res.status(200).json({ token })
   } catch (error) {
     return res.status(500).json({ error })
   }
+}
+
+export const loginUserFromGoogle = async (req, res) => {
+  console.log('Google login callback triggered', req.user)
+  if (req.user) {
+    const token = jwt.sign({ userId: req.user._id, role: req.user.role }, JWT_SECRET, { expiresIn: '7d' })
+    req.token = token
+    console.log('Generated JWT token for Google user:', token)
+    res.redirect(`http://localhost:5173/auth/google/success/?token=${token}`)
+    //return res.status(200).json({ user: req.user, token })
+    return
+  }
+  return res.status(401).json({ message: 'Not authenticated' })
 }
 
 export async function register (req, res) {
@@ -83,7 +96,7 @@ export async function getMe (req, res) {
   if (response) {
     return res.status(200).json({ user: response })
   }
-  return res.status(401).json({ error: 'Not Authorized' })
+  return res.status(401).json({ error: 'User is not logged in.' })
 }
 
 export async function getAllUsers (req, res) {
