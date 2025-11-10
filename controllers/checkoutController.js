@@ -6,6 +6,7 @@ import 'dotenv/config'
 // import { updateProductStockPurchase } from './productController.js'
 import { createOrder, updateOrderStatus, payWithMercadoPago } from './orderController.js'
 import Order from '../models/Order.js'
+import { sendOrderEmail } from '../emailController/emailController.js'
 const { MP_ACCESS_TOKEN } = process.env
 
 const client = new MercadoPagoConfig({
@@ -74,6 +75,7 @@ export const receiveWebhook = async (req, res) => {
       // await createOrder(req, res, paymentData)
       await Cart.findOneAndDelete({ user: req.userId })
       console.log('UPDATED ORDER: ', updatedOrder)
+      await sendOrderEmail(updatedOrder)
       return res.status(201).json({ updatedOrder })
     }
   } catch (error) {
