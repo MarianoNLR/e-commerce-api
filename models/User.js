@@ -2,29 +2,28 @@ import { Schema, model } from 'mongoose'
 import uniqueValidator from 'mongoose-unique-validator'
 
 const userSchema = new Schema({
-  username: {
-    type: String,
-    unique: true
-  },
   name: {
-    type: String
+    type: String,
+    required: true
   },
   lastName: {
     type: String
   },
   email: {
     type: String,
-    unique: true
+    unique: true,
+    sparse: true
   },
-  password: String,
+  password: {
+    type: String
+  },
   role: {
     type: String,
     enum: ['user', 'moderator', 'admin'],
     default: 'user'
   },
   googleId: {
-    type: String,
-    unique: true
+    type: String
   }
 })
 
