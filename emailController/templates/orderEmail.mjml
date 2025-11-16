@@ -6,7 +6,7 @@
           ¡Gracias por tu compra, {{shipping_info.name}} {{shipping_info.lastName}}!
         </mj-text>
         <mj-text color="#555555" align="center">
-          Tu Orden ID es: {{id}}
+          Tu Orden ID es: {{_id}}
         </mj-text>
         <mj-text color="#555555" align="center">
           Hemos recibido tu pedido con los siguientes detalles:
