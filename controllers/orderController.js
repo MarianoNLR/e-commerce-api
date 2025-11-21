@@ -52,7 +52,7 @@ export async function updateOrderStatus (req, res) {
     if (!order) {
       return null
     }
-    return order
+    return res.status(200).json(order)
   } catch (error) {
     // res.status(500).json({ error: 'Failed to update order status.' })
     console.log('Failed to update order status.', error)
@@ -67,6 +67,7 @@ export async function payWithMercadoPago (req, res) {
   console.log('ORDER ID: ', orderId)
   try {
     const order = await Order.findByIdAndUpdate(orderId, { status, payment_id: paymentId }, { new: true })
+    .populate('products.product')
     for (let i = 0; i < order.products.length; i++) {
       console.log(order.products[i].product, order.products[i].quantity)
       if (!await updateProductStockPurchase(order.products[i].product, order.products[i].quantity)) {
@@ -118,7 +119,11 @@ export async function createOrder (req, res) {
     // }
     const newOrder = await Order.create({
       user: req.userId,
-      products: cartUser.items,
+      products: cartUser.items.map(item => ({
+        product: item.product._id,
+        quantity: item.quantity,
+        priceAtPurchase: item.product.price
+      })),
       total: cartUser.totalPrice,
       shipping_info: shippingInfo
     })
