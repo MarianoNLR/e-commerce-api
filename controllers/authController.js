@@ -15,15 +15,16 @@ passport.use(
         async (accessToken, refreshToken, profile, done) => {
             // Here you would find or create a user in your database
             const user = await User.findOne({ googleId: profile.id });
-            if (!user) {
-                const newUser = await User.create({
+            if (user) {
+                return done(null, user);
+            } else {
+                return done(null, {
+                    isNewUser: true,
                     googleId: profile.id,
                     name: profile.displayName,
+                    lastName: profile.name.familyName,
                     email: profile.emails[0].value,
                 });
-                done(null, newUser);
-            } else {
-                done(null, user);
             }
         }
     )
