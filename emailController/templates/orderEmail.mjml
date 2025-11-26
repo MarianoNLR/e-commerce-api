@@ -16,13 +16,15 @@
           <tr style="background-color:#efefef;">
             <th style="padding:10px;">Producto</th>
             <th style="padding:10px;">Cantidad</th>
-            <th style="padding:10px;">Precio</th>
+            <th style="padding:10px;">Precio Unitario</th>
+            <th style="padding:10px;">Total</th>
           </tr>
-          {{#each products}}
+          {{#each items}}
           <tr>
-            <td style="padding:10px; text-align:center;">{{this.product.name}}</td>
-            <td style="padding:10px; text-align:center;">{{this.quantity}}</td>
-            <td style="padding:10px; text-align:center;">${{multiply this.product.price this.quantity}}</td>
+            <td style="padding:10px; text-align:center;">{{name}}</td>
+            <td style="padding:10px; text-align:center;">{{quantity}}</td>
+            <td style="padding:10px; text-align:center;">${{priceAtPurchase}}</td>
+            <td style="padding:10px; text-align:center;">${{multiply priceAtPurchase quantity}}</td>
           </tr>
           {{/each}}
         </mj-table>

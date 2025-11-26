@@ -66,7 +66,7 @@ Handlebars.registerHelper('multiply', function (a, b) {
 
 export async function sendOrderEmail (order) {
   try {
-    console.log('Preparing to send email for order: ', order)
+    console.log('Preparing to send email for order: ', order.toObject())
     const html = template(order.toObject())
     const mailOptions = {
       from: process.env.EMAIL_USER,
