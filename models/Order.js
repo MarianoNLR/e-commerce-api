@@ -1,25 +1,38 @@
 import { Schema, model } from 'mongoose'
 
+const OrderItemSnapshotSchema = new Schema({
+  productId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  image: {
+    type: [String],
+  },
+  description: {
+    type: String,
+  },
+  priceAtPurchase: {
+    type: Number,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1
+  }
+ }, { _id: false })
+
 const orderSchema = new Schema({
   user: {
     type: Schema.Types.ObjectId,
     ref: 'User'
   },
-  products: [{
-    product: {
-      type: Schema.Types.ObjectId,
-      ref: 'Product'
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-    priceAtPurchase: {
-      type: Number,
-      required: true
-    }
-  }],
+  items: [OrderItemSnapshotSchema],
   total: {
     type: Number,
     required: true,
