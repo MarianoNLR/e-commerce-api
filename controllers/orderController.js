@@ -119,10 +119,12 @@ export async function createOrder (req, res) {
     // }
     const newOrder = await Order.create({
       user: req.userId,
-      products: cartUser.items.map(item => ({
-        product: item.product._id,
-        quantity: item.quantity,
-        priceAtPurchase: item.product.price
+      items: cartUser.items.map(item => ({
+        productId: item.product._id,
+        name: item.product.name,
+        description: item.product.description,
+        priceAtPurchase: item.product.price,
+        quantity: item.quantity
       })),
       total: cartUser.totalPrice,
       shipping_info: shippingInfo
