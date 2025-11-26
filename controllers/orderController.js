@@ -67,10 +67,9 @@ export async function payWithMercadoPago (req, res) {
   console.log('ORDER ID: ', orderId)
   try {
     const order = await Order.findByIdAndUpdate(orderId, { status, payment_id: paymentId }, { new: true })
-    .populate('products.product')
-    for (let i = 0; i < order.products.length; i++) {
-      console.log(order.products[i].product, order.products[i].quantity)
-      if (!await updateProductStockPurchase(order.products[i].product, order.products[i].quantity)) {
+    for (let i = 0; i < order.items.length; i++) {
+      console.log(order.items[i].productId, order.items[i].quantity)
+      if (!await updateProductStockPurchase(order.items[i].productId, order.items[i].quantity)) {
         console.error('Error updating product stock.')
         return
       }
