@@ -10,7 +10,7 @@ const productSchema = new Schema({
   quantity: {
     type: Number
   },
-  imageURL: [{
+  imagesURLs: [{
     type: String
   }],
   categoryId: {
