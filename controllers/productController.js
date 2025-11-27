@@ -1,6 +1,7 @@
 import Product from '../models/Product.js'
 import 'dotenv/config'
 import path, { extname } from 'path'
+import { unlink } from 'fs/promises';
 
 export async function getAll (req, res) {
   const { categoryId } = req.params
@@ -55,13 +56,17 @@ export async function getById (req, res) {
 }
 
 export async function add (req, res) {
-  const { name, price, quantity, categoryId, description } = req.body
-  const { file } = req
-  console.log(req.file)
-  const fileExtension = extname(file.originalname)
-  const fileName = file.filename.split(fileExtension)[0]
-  const fileFullName = `${fileName}${fileExtension}`
-
+  const { name, price, quantity, categoryId, description, deletedImages } = req.body
+  const { files : images } = req
+  const imagesURLs = []
+  
+  images.filter().forEach(image => {
+    const fileExtension = extname(image.originalname)
+    const fileName = image.filename.split(fileExtension)[0]
+    const fileFullName = `${fileName}${fileExtension}`
+    imagesURLs.push(fileFullName)
+  });
+  
   try {
     const newProduct = new Product(
       {
@@ -70,7 +75,7 @@ export async function add (req, res) {
         quantity,
         categoryId,
         description,
-        imageURL: fileFullName
+        imagesURLs: imagesURLs
       })
     await newProduct.save()
 
@@ -81,14 +86,54 @@ export async function add (req, res) {
 }
 
 export async function update (req, res) {
-  const { productId } = req.params
-  const { name, price, quantity } = req.body
-
+  const { id } = req.params
+  const { name, price, quantity, description, imagesToKeep = [] } = req.body
+  const { files : newImages } = req
+  const productsUpdate = { name, price, quantity, description }
+  
+  
+  //console.log(req)
   try {
-    const updatedProduct = await Product.findByIdAndUpdate(productId, { name, price, quantity })
+    // Update product simple fields first before handling images
+    await Product.findByIdAndUpdate(id, productsUpdate)
 
-    return res.status(200).json({ result: updatedProduct })
+    // Get current images from product
+    const currentImages = await Product.findById(id).select('imagesURLs -_id')
+
+    // Determine which images to delete by filtering out the ones to keep
+    const toDelete = []
+    if (imagesToKeep.length === 0) {
+        toDelete.push(...currentImages.imagesURLs)
+    } else {
+      toDelete = currentImages.imagesURLs.filter(img => !imagesToKeep.includes(img))
+    }
+    
+
+    //Delete images that are not in imagesToKeep from uploads folder and from product document
+    for (const image of toDelete) { 
+      try {
+        const imgPath = path.join(process.cwd(), 'uploads', image)
+        await unlink(imgPath)
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.error(`File ${image} not found, skipping deletion.`)
+        }
+      }
+      await Product.updateOne({ _id: id }, { $pull: { imagesURLs: image } })
+    }
+
+    // Add new images to product document
+    const newImagesURLs = [];
+    if (newImages && newImages.length > 0) {
+      for (const image of newImages) {
+        newImagesURLs.push(image.filename);
+      }
+      await Product.updateOne({ _id: id }, { $push: { imagesURLs: { $each: newImagesURLs } } });
+    }
+    const updatedProduct = await Product.findById(id)
+    res.status(200).json({ result: updatedProduct })
   } catch (error) {
+    console.log(error)
     return res.status(500).json({ error })
   }
 }
