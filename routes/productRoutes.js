@@ -31,12 +31,10 @@ const multerUpload = multer({
 const productRouter = express.Router()
 
 productRouter.post('/', (req, res, next) => {
-  console.log('HOLAA')
-  multerUpload.single('file')(req, res, (err) => {
+  multerUpload.array('images')(req, res, (err) => {
     if (err) {
       res.status(400).json({ error: err.message })
     }
-
     add(req, res)
   })
 })
@@ -45,8 +43,15 @@ productRouter.get('/product/:productId', getById)
 productRouter.get('/search/', getBySearch)
 productRouter.get('/:categoryId', getAll)
 productRouter.get('/', getAll)
-productRouter.patch('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), update)
+productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), (req, res, next) => {
+  multerUpload.array('newImages')(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ error: err.message })
+    }
+    update(req, res)
+  })
+})
 productRouter.patch('/stock/:productId', updateProductStock)
-productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
+//productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 
 export default productRouter
