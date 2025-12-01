@@ -11,7 +11,7 @@ import cartRouter from './routes/cartRoutes.js'
 import categoryRouter from './routes/categoryRoutes.js'
 import checkoutRouter from './routes/checkoutRoutes.js'
 import orderRouter from './routes/orderRoutes.js'
-import './controllers/authController.js'
+import './config/passport.js'
 
 const app = express()
 
