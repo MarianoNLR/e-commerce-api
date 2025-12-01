@@ -1,5 +1,5 @@
 import express from 'express'
-import { login, loginUserFromGoogle, register, completeGoogleSignup, logout, getUser, getAllUsers, getMe } from '../controllers/userController.js'
+import { login, loginUserFromGoogle, register, completeGoogleSignup, logout, getAllUsers, getMe, getUserById } from '../controllers/userController.js'
 import { authUser } from '../middlewares/authUser.js'
 import User from '../models/User.js'
 import passport from 'passport'
@@ -20,7 +20,7 @@ userRouter.get('/google',
 userRouter.get('/google/callback', passport.authenticate('google', { session: false }), loginUserFromGoogle)
 userRouter.post('/logout', logout)
 userRouter.get('/me', authUser, getMe)
-userRouter.get('/:id', getUser)
+userRouter.get('/:id', getUserById)
 userRouter.post('/email-check', async (req, res) => {
     console.log(req.body)
     const { email } = req.body
