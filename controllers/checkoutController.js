@@ -43,8 +43,8 @@ export async function setPreferences (req, res) {
           pending: 'https://google.com'
         },
         auto_return: 'all',
-        notification_url: 'https://08f8ebfddb29.ngrok-free.app/checkout/webhook',
-        external_reference: { userId, orderId: currentOrder.id } // Probar enviar objeto con ID del usuario que realiza la compra y orderID
+        notification_url: 'https://14b2bab6521b.ngrok-free.app/checkout/webhook',
+        external_reference: { userId, orderId: currentOrder.id } // Send object with User ID and orderID
       }
     })
     console.log('PREFERENCES: ', result)
