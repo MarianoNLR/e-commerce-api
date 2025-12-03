@@ -7,7 +7,7 @@ const { JWT_SECRET } = process.env
 
 export async function login ({ email, password }) {
     const user = await User.findOne({ email })
-
+    console.log('USER FOUND IN AUTH SERVICE:', user)
     if (!user) {
         const err = new Error('Email or password incorrect.')
         err.status = 401
@@ -98,6 +98,17 @@ export async function completeGoogleSignup ({ token, name, lastName }) {
             token: authToken, 
             user: { name: newUser.name, lastName: newUser.lastName, email: newUser.email }
         }
+    }
+}
+
+export async function getMe ({ userId }) {
+    const user = await User.findById(userId).select('-password')
+    if (user) {
+        return { user }
+    } else {
+        const err = new Error('User not found.')
+        err.status = 404
+        throw err
     }
 }
   
