@@ -13,7 +13,8 @@ export async function getOrders (req, res) {
   }
  
   catch (error) {
-    res.status(500).json({ error: 'Failed to fetch orders.' })
+    console.error('Failed to fetch orders:', error)
+    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
   }
 }
 
@@ -26,7 +27,8 @@ export async function getOrderById (req, res) {
     }
     res.status(200).json(order)
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch order.' })
+    console.error('Failed to get order by ID:', error)
+    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
   }
 }
 
