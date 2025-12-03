@@ -15,9 +15,10 @@ export async function login (req, res) {
     if (!user) {
       return res.status(401).json({ message: 'Email or password incorrect.' })
     }
+    return res.status(200).json({ token: user })
   }
   catch (error) {
-    return res.status(500).json({ error })
+    return res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
   }
 }
 
@@ -94,7 +95,8 @@ export async function getMe (req, res) {
       return res.status(200).json({ user })
     }
   } catch (error) {
-    return res.status(404).json({ error: 'User not found.' })
+    console.error('Failed to get user:', error)
+    return res.status(error.status || 500 ).json({ error: error.message || 'Internal Server Error' })
   }
 
 }
