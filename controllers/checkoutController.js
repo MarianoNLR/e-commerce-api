@@ -4,7 +4,8 @@ import 'dotenv/config'
 // import Product from '../models/Product.js'
 // import Order from '../models/Order.js'
 // import { updateProductStockPurchase } from './productController.js'
-import { createOrder, updateOrderStatus, payWithMercadoPago } from './orderController.js'
+//import { createOrder, updateOrderStatus, payWithMercadoPago } from './orderController.js'
+import * as orderService from '../services/orderService.js'
 import Order from '../models/Order.js'
 import { sendOrderEmail } from '../emailController/emailController.js'
 const { MP_ACCESS_TOKEN } = process.env
@@ -33,7 +34,7 @@ export async function setPreferences (req, res) {
     })
   }
   try {
-    const currentOrder = await createOrder(req, res)
+    const currentOrder = await orderService.createOrder({userId,  shipping_info: req.body.shipping_info })
     const result = await preference.create({
       body: {
         items,
@@ -71,7 +72,7 @@ export const receiveWebhook = async (req, res) => {
       req.body.status = 'paid'
       req.body.payment_id = paymentData.id
 
-      const updatedOrder = await payWithMercadoPago(req, res)
+      const updatedOrder = await orderService.payWithMercadoPago({ orderId: req.params.orderId, status: req.body.status, paymentId: paymentData.id })
       // await createOrder(req, res, paymentData)
       await Cart.findOneAndDelete({ user: req.userId })
       console.log('UPDATED ORDER: ', updatedOrder)
