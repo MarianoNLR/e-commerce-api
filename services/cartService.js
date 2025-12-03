@@ -3,8 +3,20 @@ import Product from '../models/Product.js'
 import 'dotenv/config'
 
 export async function addItemToCart (userId, productId, quantity) {
-    let [userCart] = await Cart.find({ user: userId })
+    if (!productId) {
+        throw { status: 400, message: 'Product ID is required' }
+    }
 
+    if (!quantity || quantity <= 0) {
+        throw { status: 400, message: 'Quantity must be greater than zero' }
+    }
+
+    const product = await Product.findById(productId)
+    if (!product) {
+        throw { status: 404, message: 'Product not found' }
+    }
+
+    let userCart = await Cart.findOne({ user: userId })
     // If user has no cart, create one
     if (!userCart) {
         const newCart = await createCartForUser(userId)
@@ -13,18 +25,18 @@ export async function addItemToCart (userId, productId, quantity) {
     }
 
     // Control if item already exists
-    const itemExists = userCart.items.findIndex(item => item.product.toString() === productId)
+    const itemExistsIndex = userCart.items.findIndex(item => item.product.toString() === productId)
     // If index is -1 item does not exist in cart
-    if (itemExists === -1) {
+    if (itemExistsIndex === -1) {
         userCart.items.push({ product: productId, quantity })
     } else {
         // Change for new quantity
-        userCart.items[itemExists].quantity = quantity
+        userCart.items[itemExistsIndex].quantity = quantity
     }
     let newTotalPrice = await calculateTotalPrice(userCart)
     userCart.totalPrice = newTotalPrice
     await userCart.save()
-    const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
+    const updatedCart = await Cart.findOne({ user: userId }).populate('items.product')
 
     return updatedCart
 }
