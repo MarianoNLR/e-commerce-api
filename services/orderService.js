@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
+import * as productService from './productService.js';
 
 export async function getOrders({ page = 0, limit = 5 }) {
     const skip = page * limit;
@@ -49,7 +50,7 @@ export async function payWithMercadoPago({ orderId, status, paymentId }) {
 
     for (let i = 0; i < order.items.length; i++) {
         console.log(order.items[i].productId, order.items[i].quantity)
-        if (!await updateProductStockPurchase(order.items[i].productId, order.items[i].quantity)) {
+        if (!await productService.decreaseStock(order.items[i].productId, order.items[i].quantity)) {
             console.error('Error updating product stock.')
             return
         }
