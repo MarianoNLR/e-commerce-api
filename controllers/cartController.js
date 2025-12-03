@@ -1,72 +1,45 @@
 import Cart from '../models/Cart.js'
 import 'dotenv/config'
 import Product from '../models/Product.js'
+import * as cartService from '../services/cartService.js'
 
 export async function add (req, res) {
   // Create cart if it's first item
   // const user = req.session.user
   const userId = req.userId
   const { productId, quantity } = req.body.data
-  let [userCart] = await Cart.find({ user: userId })
-  console.log(req)
-  console.log(userCart)
-  if (!userCart) {
-    const newCart = new Cart({ user: userId, items: [], totalPrice: 0 })
-    userCart = await newCart.save()
-    console.log('Crea un carrito nuevo')
+  
+  try {
+    const result = await cartService.addItemToCart(userId, productId, quantity)
+    return res.status(200).json({ cart: result })
+  } catch (error) {
+    console.error(error)
+    return res.status(error.status || 500).json({error: error.message || 'Error adding item to cart' })
   }
-  // Control if item already exists
-  const itemExists = userCart.items.findIndex(item => item.product.toString() === productId)
-  // If index is -1 item does not exist in cart
-  if (itemExists === -1) {
-    userCart.items.push({ product: productId, quantity })
-  } else {
-    // Change for new quantity
-    userCart.items[itemExists].quantity = quantity
-  }
-  let newTotalPrice = 0
-  for (let i = 0; i < userCart.items.length; i++) {
-    const item = await Product.findById(userCart.items[i].product)
-    console.log(item)
-    newTotalPrice += item.price * userCart.items[i].quantity
-  }
-
-  userCart.totalPrice = newTotalPrice
-  await userCart.save()
-  const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
-  return res.status(201).json({ cart: updatedCart })
 }
 
 export async function getCart (req, res) {
   // const user = req.session.user
   const { userId } = req.params
-  const [cart] = await Cart.find({ user: userId }).populate('items.product')
-  return res.status(200).json({ cart })
+  try {
+    const cart = await cartService.getCartByUserId(userId)
+    return res.status(200).json({ cart })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Error retrieving cart' })
+  }
 }
 
 export async function deleteItem (req, res) {
   const userId = req.userId
   try {
     const { product: productId } = req.params
-
-    const [cart] = await Cart.find({ user: userId }).populate('items.product')
-    let totalPrice = cart.totalPrice
-    for (let i = 0; i < cart.items.length; i++) {
-      const item = cart.items[i]
-      if (item.product.id === productId) {
-        console.log(item.product.price, item.quantity)
-        totalPrice -= item.product.price * item.quantity
-        cart.items.splice(i, 1)
-        break
-      }
-    }
-    cart.totalPrice = totalPrice
-    await Cart.findOneAndUpdate({ user: userId }, { items: cart.items, totalPrice }, {
-      new: true
-    })
-    const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
-    return res.status(200).json({ cart: updatedCart })
+    const result = await cartService.deleteItemFromCart(userId, productId)
+    //const [cart] = await Cart.find({ user: userId }).populate('items.product')
+    
+    return res.status(200).json({ cart: result })
   } catch (error) {
-    return res.status(500).json({ error })
+    console.error(error)
+    return res.status(error.status || 500).json({error: error.message || 'Error deleting item from cart' })
   }
 }
