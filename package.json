@@ -17,6 +17,7 @@
     "@casl/mongoose": "^8.0.3",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
+    "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -31,7 +32,8 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "standard": "^17.1.0"

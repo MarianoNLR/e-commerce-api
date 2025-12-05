@@ -55,7 +55,7 @@ export async function add (req, res) {
     const { name, price, quantity, categoryId, description } = req.body
     const { files : images } = req
 
-    await productService.add({ name, price, quantity, categoryId, description, images })
+    const newProduct = await productService.add({ name, price, quantity, categoryId, description, images })
 
     return res.status(201).json({ newProduct })
   } catch (error) {

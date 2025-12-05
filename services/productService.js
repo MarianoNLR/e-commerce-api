@@ -1,4 +1,5 @@
 import Product from "../models/Product.js"
+import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 import path, { extname } from "path";
 import { unlink } from "fs/promises";
 import 'dotenv/config'
@@ -49,13 +50,15 @@ export async function getById({ productId }) {
 
 export async function add({ name, price, quantity, categoryId, description, images }) {
     const imagesURLs = []
-
-    images.filter().forEach(image => {
-    const fileExtension = extname(image.originalname)
-    const fileName = image.filename.split(fileExtension)[0]
-    const fileFullName = `${fileName}${fileExtension}`
-    imagesURLs.push(fileFullName)
-    });
+    const imagesUploads = images.map(image => uploadToCloudinary(image.buffer, 'products'))
+    const imagesResults = await Promise.all(imagesUploads)
+    imagesResults.forEach(result => imagesURLs.push(result.secure_url))
+    // images.filter().forEach(image => {
+    // const fileExtension = extname(image.originalname)
+    // const fileName = image.filename.split(fileExtension)[0]
+    // const fileFullName = `${fileName}${fileExtension}`
+    // imagesURLs.push(fileFullName)
+    // });
 
     const newProduct = new Product({
         name,
@@ -65,7 +68,7 @@ export async function add({ name, price, quantity, categoryId, description, imag
         description,
         imagesURLs: imagesURLs
     })
-
+    console.log('NEW PRODUCT SERVICE: ', newProduct)
     const result = await newProduct.save()
     return result
 }
