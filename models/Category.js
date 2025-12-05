@@ -2,7 +2,10 @@ import { Schema, model } from 'mongoose'
 
 const categorySchema = new Schema({
   name: {
-    type: String
+    type: String,
+    unique: true,
+    required: true,
+    trim: true
   }
 })
 
