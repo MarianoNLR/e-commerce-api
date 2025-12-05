@@ -53,7 +53,6 @@ export async function setPreferences ({ userId, shipping_info }) {
 }
 
 export async function receiveWebhook ({ paymentInfo }) {
-    const paymentInfo = req.query
     console.log('PAYMENT INFO: ', paymentInfo)
     try {
         if (paymentInfo.type === 'payment') {
