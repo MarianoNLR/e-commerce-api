@@ -3,10 +3,27 @@ import * as categoryService from '../services/categoryService.js'
 import 'dotenv/config.js'
 
 export async function getAll (req, res) {
+  const { includeCount } = req.query
   try {
-    const categories = await categoryService.getAll()
+    const categories = includeCount
+      ? await categoryService.getAllWithCount()
+      : await categoryService.getAll()
 
     return res.status(200).json({ categories })
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
+  }
+}
+
+export async function getCategoryById (req, res) {
+  const { categoryId } = req.params
+  const { includeCount } = req.query
+
+  const category = includeCount 
+    ? await categoryService.getCategoryWithCount({categoryId}) 
+    : await categoryService.getCategoryById({categoryId})
+  try {
+    return res.status(200).json({ category })
   } catch (error) {
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
   }
@@ -36,6 +53,27 @@ export async function addCategory (req, res) {
 
   } catch (error) {
     console.log('Error trying to create category:', error)
+    return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
+  }
+}
+
+export async function deleteCategory (req, res) {
+  try {
+    const { categoryId } = req.params
+    const result = await categoryService.deleteCategory(categoryId)
+    return res.status(200).json({ result })
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
+  }
+}
+
+export async function updateCategory (req, res) {
+  try {
+    const { categoryId } = req.params
+    const { name } = req.body
+    const result = await categoryService.updateCategory(categoryId, { name })
+    return res.status(200).json({ result })
+  } catch (error) {
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
   }
 }
