@@ -52,7 +52,7 @@ export async function addCategory (req, res) {
     return res.status(201).json({ result })
 
   } catch (error) {
-    console.log('Error trying to create category:', error)
+    console.error('Error trying to create category:', error)
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
   }
 }

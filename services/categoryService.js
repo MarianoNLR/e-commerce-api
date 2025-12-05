@@ -32,9 +32,16 @@ export async function addCategory({ name }) {
     if (!name || name.length < 2) {
         throw { status: 400, message: 'Name of category must have more than 2 letters.' };
     }
+    try {
+        const newCategory = new Category({ name });
+        const result = await newCategory.save();
+    } catch (error) {
+        if (error.code === 11000) {
+            throw { status: 400, message: 'Category name already exists.' };
+        }
+        throw error;
+    }
     
-    const newCategory = new Category({ name });
-    const result = await newCategory.save();
     
     return result;
 }
@@ -60,14 +67,26 @@ export async function updateCategory(categoryId, { name }) {
         throw { status: 400, message: 'Name of category must have more than 2 letters.' };
     }
 
-    const result = await Category.findByIdAndUpdate(categoryId, { name }, { new: true });
+    try {
+        const result = await Category.findByIdAndUpdate(categoryId, { name }, { new: true });
+        if (!result) {
+            throw { status: 404, message: 'Category not found.' };
+        }
 
-    if (!result) {
-        throw { status: 404, message: 'Category not found.' };
+        return result;
+        
+    } catch (error) {
+        if (error.code === 11000) {
+            throw { status: 400, message: 'Category name already exists.' };
+        }
+        throw error;
     }
 
     
-    return result;
+
+    
+    
+   
 }
 
 export async function getCategoryById({categoryId}) {
