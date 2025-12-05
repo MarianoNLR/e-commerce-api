@@ -1,7 +1,6 @@
 import Order from '../models/Order.js'
 import Cart from '../models/Cart.js'
 import * as orderService from '../services/orderService.js'
-import { updateProductStockPurchase } from './productController.js'
 
 export async function getOrders (req, res) {
   try {
