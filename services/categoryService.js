@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
 
+const isValidObjectId = (id) => mongoose.isValidObjectId(id);
+
 export async function getAll() {
     const categories = await Category.find({});
     return categories;
@@ -47,7 +49,7 @@ export async function addCategory({ name }) {
 }
 
 export async function deleteCategory(categoryId) {
-    if (!categoryId) {
+    if (!categoryId || !isValidObjectId(categoryId)) {
         throw { status: 400, message: 'Category ID is required.' };
     }
     const result = await Category.findByIdAndDelete(categoryId);
@@ -59,7 +61,7 @@ export async function deleteCategory(categoryId) {
 }
 
 export async function updateCategory(categoryId, { name }) {
-    if (!categoryId) {
+    if (!categoryId || !isValidObjectId(categoryId)) {
         throw { status: 400, message: 'Category ID is required.' };
     }
     
@@ -90,14 +92,14 @@ export async function updateCategory(categoryId, { name }) {
 }
 
 export async function getCategoryById({categoryId}) {
-    if (!categoryId) {
+    if (!categoryId || !isValidObjectId(categoryId)) {
         throw { status: 400, message: 'Category ID is required.' };
     }
     return await Category.findById(categoryId);
 }
 
 export async function getCategoryWithCount({categoryId}) {
-    if (!categoryId) {
+    if (!categoryId || !isValidObjectId(categoryId)) {
         throw { status: 400, message: 'Category ID is required.' };
     }
 
