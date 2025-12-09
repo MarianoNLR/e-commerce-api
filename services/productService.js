@@ -4,9 +4,15 @@ import path, { extname } from "path";
 import { unlink } from "fs/promises";
 import 'dotenv/config'
 
-export async function getAll({categoryId, filters}) {
-    if (categoryId) {
+const isValidObjectId = (id) => mongoose.isValidObjectId(id);
+
+export async function getAll({categoryId, filters = {}}) {
+    if (categoryId && isValidObjectId(categoryId)) {
       filters.categoryId = categoryId
+    } else {
+        const err = new Error('Valid category ID is required')
+        err.status = 400
+        throw err
     }
 
     const products = await Product.find(filters).collation({ locale: 'es', strength: 2 }).sort({ price: -1 })
@@ -38,6 +44,11 @@ export async function getBySearch({q, filters}) {
 }
 
 export async function getById({ productId }) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
     const product = await Product.findById(productId)
 
     if (!product) {
@@ -74,6 +85,11 @@ export async function add({ name, price, quantity, categoryId, description, imag
 }
 
 export async function update({ productId, productsUpdate, newImages, imagesToKeep }) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
     // Update product simple fields first before handling images
     await Product.findByIdAndUpdate(productId, productsUpdate, { new: true })
 
@@ -115,6 +131,12 @@ export async function update({ productId, productsUpdate, newImages, imagesToKee
 }
 
 export async function deleteProduct({ productId }) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
+
     const result = await Product.deleteOne({ _id: productId })
 
     if (result.deletedCount === 0) {
@@ -127,14 +149,29 @@ export async function deleteProduct({ productId }) {
 }
 
 export async function updateProductStock({ productId, update}) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
     return await Product.findByIdAndUpdate(productId, update, { new: true })
 
 }
 
 export async function decreaseStock(productId, amount) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
     return updateProductStock({ productId, update: { $inc: { quantity: -amount } } })
 }
 
 export async function setStock(productId, newStock) {
+    if (!productId || !isValidObjectId(productId)) {
+        const err = new Error('Valid product ID is required')
+        err.status = 400
+        throw err
+    }
     return updateProductStock({ productId, update: { quantity: newStock } })
 }
