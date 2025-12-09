@@ -26,11 +26,16 @@ export async function getAll({categoryId, filters = {}}) {
     return products
 }
 
-export async function getBySearch({q, filters}) {
-
-    if (q) {
-      filters.name = { $regex: q, $options: 'i' }
+export async function getBySearch({q, filters = {}}) {
+    // query validation
+    const query = q ? q.trim() : ''
+    if (query.length > 100) {
+        const err = new Error('Search query too long')
+        err.status = 400
+        throw err
     }
+      
+    filters.name = { $regex: query, $options: 'i' }
 
     const products = await Product.find(filters)
         .populate('categoryId')
