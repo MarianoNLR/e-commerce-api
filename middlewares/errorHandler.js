@@ -1,4 +1,9 @@
 export function errorHandler(err, req, res, next) {
+
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+        err = new UnauthorizedError('Invalid or expired token.')
+    }
+
     if (err.isOperational) {
         res.status(err.statusCode).json({
             status: 'error',
