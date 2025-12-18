@@ -4,12 +4,7 @@ import { UnauthorizedError } from '../errors/UnauthorizedError.js'
 
 const { JWT_SECRET } = process.env
 
-// Used to throw an error if token is invalid or expired
+// Used to verify JWT tokens, if error occurs, it will be handled in errorHandler middleware
 export function verifyToken(token) {
-    
-    try {
-        return jwt.verify(token, JWT_SECRET)
-    } catch (error) {
-        throw new UnauthorizedError('Invalid or expired token.')
-    }
+    return jwt.verify(token, JWT_SECRET)
 }
