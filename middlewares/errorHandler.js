@@ -1,3 +1,5 @@
+import { UnauthorizedError } from '../errors/UnauthorizedError.js';
+
 export function errorHandler(err, req, res, next) {
 
     if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
