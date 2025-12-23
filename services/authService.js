@@ -2,23 +2,21 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import 'dotenv/config'
 import User from '../models/User.js'
+import { verifyToken } from '../utils/verifyToken.js'
+import { NotFoundError } from '../errors/NotFoundError.js'
+import { BadRequestError } from '../errors/BadRequestError.js'
 
 const { JWT_SECRET } = process.env
 
 export async function login ({ email, password }) {
     const user = await User.findOne({ email })
-    console.log('USER FOUND IN AUTH SERVICE:', user)
     if (!user) {
-        const err = new Error('Email or password incorrect.')
-        err.status = 401
-        throw err
+        throw new BadRequestError('Email or password incorrect.')
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password)
     if (!passwordMatch) {
-        const err = new Error('Email or password incorrect.')
-        err.status = 401
-        throw err
+        throw new BadRequestError('Email or password incorrect.')
     }
     const token = jwt.sign({ userId: user._id}, JWT_SECRET)
 
@@ -32,20 +30,13 @@ export async function login ({ email, password }) {
 }
 
 export async function register ({ name, lastName, email, password, confirmPassword }) {
-    const err = new Error('Internal Server Error')
-    err.status = 500
-
     if (password !== confirmPassword) {
-        err.message = 'Passwords do not match.'
-        err.status = 400
-        throw err
+        throw new BadRequestError('Passwords do not match.')
     }
     
     const userExists = await User.findOne({ email })
     if (userExists) {
-        err.message = 'Email already in use.'
-        err.status = 400
-        throw err
+        throw new BadRequestError('Email already in use.')
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -56,7 +47,7 @@ export async function register ({ name, lastName, email, password, confirmPasswo
         password: hashedPassword
     })
     await newUser.save()
-    const token = await login({ email: newUser.email, password: newUser.password })
+    const token = await login({ email: newUser.email, password })
     return token
 }
 
@@ -64,24 +55,30 @@ export async function loginUserFromGoogle ({ googleId, email }) {
     const existingUser = await User.findOne({ googleId })
     if (!existingUser) {
         const tempToken = jwt.sign({ googleId, email }, JWT_SECRET, { expiresIn: '10m' })  
-        const payload = { token: tempToken, email, isNewUser: true }
+        // const payload = { token: tempToken, email, isNewUser: true }
 
-        return {status: 200, payload }
+        return {
+            token: tempToken,
+            email,
+            isNewUser: true
+        }
     }
 
-    const token = jwt.sign({ userId: req.user._id, role: req.user.role }, JWT_SECRET, { expiresIn: '7d' })
-    const payload = { token, email, isNewUser: false }
-    return {status: 200, payload }
+    const token = jwt.sign({ userId: existingUser._id, role: existingUser.role }, JWT_SECRET, { expiresIn: '7d' })
+    // const payload = { token, email, isNewUser: false }
+    return {
+        token,
+        email,
+        isNewUser: false
+    }
 }
 
 export async function completeGoogleSignup ({ token, name, lastName }) {
-    const decoded = jwt.verify(token, JWT_SECRET)
+    const decoded = verifyToken(token)
     const { googleId, email } = decoded
     const existingUser = await User.findOne({ email })
     if (existingUser) {
-        const err = new Error('Email already in use.')
-        err.status = 400
-        throw err
+        throw new BadRequestError('Email already in use.')
     }
 
     const newUser = new User({
@@ -93,22 +90,17 @@ export async function completeGoogleSignup ({ token, name, lastName }) {
     await newUser.save()
     const authToken = jwt.sign({ userId: newUser._id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' })
     return {
-        status: 201, 
-        payload: {
-            token: authToken, 
-            user: { name: newUser.name, lastName: newUser.lastName, email: newUser.email }
-        }
+        token: authToken, 
+        user: { name: newUser.name, lastName: newUser.lastName, email: newUser.email }
     }
 }
 
 export async function getMe ({ userId }) {
     const user = await User.findById(userId).select('-password')
     if (user) {
-        return { user }
+        return user 
     } else {
-        const err = new Error('User not found.')
-        err.status = 404
-        throw err
+        throw new NotFoundError('User not found.')
     }
 }
   
