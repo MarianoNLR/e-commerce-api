@@ -3,61 +3,58 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import 'dotenv/config'
 import * as authService from '../services/authService.js'
+import { UnauthorizedError } from '../errors/UnauthorizedError.js'
 
 const { JWT_SECRET } = process.env
 
-export async function login (req, res) {
+export async function login (req, res, next) {
   const { email, password } = req.body
 
   try {
     const user = await authService.login({ email, password })
-
-    if (!user) {
-      return res.status(401).json({ message: 'Email or password incorrect.' })
-    }
     return res.status(200).json({ token: user })
   }
   catch (error) {
-    return res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
-export const completeGoogleSignup = async (req, res) => {
+export async function completeGoogleSignup (req, res, next) {
   
   try {
     const { token, name, lastName } = req.body
     const result = await authService.completeGoogleSignup({ token, name, lastName })
-    return res.status(result.status).json(result.payload)
+    return res.status(200).json(result)
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to complete Google signup.' })
+    next(error)
   }
 }
 
-export const loginUserFromGoogle = async (req, res) => {
+export async function loginUserFromGoogle (req, res, next) {
   if (!req.user) {
-    return res.status(401).json({ message: 'Not authenticated' })
+    return next(new UnauthorizedError('No user data found from Google.'))
   }
 
   const  {googleId, email } = req.user
 
   const result = await authService.loginUserFromGoogle({ googleId, email })
+  if (!result) {
+    return next(new Error('Response object is undefined.'))
+  }
   const html = `
       <script>
         window.opener.postMessage(
-          ${JSON.stringify(result.payload)},
+          ${JSON.stringify(result)},
         'http://localhost:5173'
         );
         window.close();
       </script>
     `
-  if (!res) {
-    return res.status(500).json({ message: 'Internal server error' })
-  }
-  return res.status(result.status).send(html)
 
+  return res.status(200).send(html)
 }
 
-export async function register (req, res) {
+export async function register (req, res, next) {
   const { name, lastName, email, password, confirmPassword } = req.body
 
   try {
@@ -65,15 +62,15 @@ export async function register (req, res) {
     return res.status(201).json(newUserToken)
     
   } catch (error) {
-    return res.status(error.status).json({ error: error.message })
+    return next(error)
   }
 }
 
-export async function logout (req, res) {
+export async function logout (req, res, next) {
   res.clearCookie('access_token').json({ message: 'Logout successfully.' })
 }
 
-export async function getUserById (req, res) {
+export async function getUserById (req, res, next) {
   const { userId } = req.params
 
   try {
@@ -83,11 +80,11 @@ export async function getUserById (req, res) {
     }
 
   } catch (error) {
-    return res.status(error.status).json({ error: error.message })
+    next(error)
   }
 }
 
-export async function getMe (req, res) {
+export async function getMe (req, res, next) {
   const userId = req.userId
   try {
     const { user } = await authService.getMe({ userId })
@@ -95,18 +92,17 @@ export async function getMe (req, res) {
       return res.status(200).json({ user })
     }
   } catch (error) {
-    console.error('Failed to get user:', error)
-    return res.status(error.status || 500 ).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 
 }
 
-export async function getAllUsers (req, res) {
+export async function getAllUsers (req, res, next) {
   try {
     const { users } = await authService.getAllUsers()
 
     return res.status(200).json({ users })
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to retrieve users.' })
+    next(error)
   }
 }
