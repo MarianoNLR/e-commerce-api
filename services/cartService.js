@@ -1,19 +1,21 @@
 import Cart from '../models/Cart.js'
 import Product from '../models/Product.js'
 import 'dotenv/config'
+import { BadRequestError } from '../errors/BadRequestError.js'
+import { NotFoundError } from '../errors/NotFoundError.js'
 
 export async function addItemToCart (userId, productId, quantity) {
     if (!productId) {
-        throw { status: 400, message: 'Product ID is required' }
+        throw new BadRequestError('Product ID is required')
     }
 
     if (!quantity || quantity <= 0) {
-        throw { status: 400, message: 'Quantity must be greater than zero' }
+        throw new BadRequestError('Quantity must be greater than zero')
     }
 
     const product = await Product.findById(productId)
     if (!product) {
-        throw { status: 404, message: 'Product not found' }
+        throw new NotFoundError('Product not found')
     }
 
     let userCart = await Cart.findOne({ user: userId })
@@ -38,7 +40,7 @@ export async function addItemToCart (userId, productId, quantity) {
     await userCart.save()
     const updatedCart = await Cart.findOne({ user: userId }).populate('items.product')
 
-    return updatedCart
+    return { updatedCart }
 }
 
 export async function createCartForUser(userId) {
@@ -57,7 +59,7 @@ async function calculateTotalPrice(cart) {
 
 export async function getCartByUserId(userId) {
     const [cart] = await Cart.find({ user: userId }).populate('items.product')
-    return cart
+    return { cart }
 }
 
 export async function deleteItemFromCart(userId, productId) {
@@ -75,5 +77,5 @@ export async function deleteItemFromCart(userId, productId) {
         new: true
     })
     const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
-    return updatedCart
+    return { updatedCart }
 }
