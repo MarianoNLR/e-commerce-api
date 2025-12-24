@@ -14,7 +14,7 @@ export async function add (req, res) {
     return res.status(200).json({ cart: result })
   } catch (error) {
     console.error(error)
-    return res.status(error.status || 500).json({error: error.message || 'Error adding item to cart' })
+    next(error)
   }
 }
 
@@ -26,7 +26,7 @@ export async function getCart (req, res) {
     return res.status(200).json({ cart })
   } catch (error) {
     console.error(error)
-    return res.status(500).json({ error: 'Error retrieving cart' })
+    next(error)
   }
 }
 
@@ -40,6 +40,6 @@ export async function deleteItem (req, res) {
     return res.status(200).json({ cart: result })
   } catch (error) {
     console.error(error)
-    return res.status(error.status || 500).json({error: error.message || 'Error deleting item from cart' })
+    next(error)
   }
 }
