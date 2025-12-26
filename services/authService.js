@@ -26,7 +26,7 @@ export async function login ({ email, password }) {
     //   sameSite: 'None'
     // })
 
-    return token
+    return { token }
 }
 
 export async function register ({ name, lastName, email, password, confirmPassword }) {
@@ -48,7 +48,7 @@ export async function register ({ name, lastName, email, password, confirmPasswo
     })
     await newUser.save()
     const token = await login({ email: newUser.email, password })
-    return token
+    return { token }
 }
 
 export async function loginUserFromGoogle ({ googleId, email }) {
@@ -98,7 +98,7 @@ export async function completeGoogleSignup ({ token, name, lastName }) {
 export async function getMe ({ userId }) {
     const user = await User.findById(userId).select('-password')
     if (user) {
-        return user 
+        return { user }
     } else {
         throw new NotFoundError('User not found.')
     }
