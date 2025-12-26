@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
+import { BadRequestError } from "../errors/BadRequestError.js";
+import { NotFoundError } from "../errors/NotFoundError.js";
 
 const isValidObjectId = (id) => mongoose.isValidObjectId(id);
 
 export async function getAll() {
     const categories = await Category.find({});
-    return categories;
+    return { categories };
 }
 
 export async function getAllWithCount() {
@@ -27,80 +29,78 @@ export async function getAllWithCount() {
         }
     ])
 
-    return categories;
+    return { categories };
 }
 
 export async function addCategory({ name }) {
     if (!name || name.length < 2) {
-        throw { status: 400, message: 'Name of category must have more than 2 letters.' };
+        throw new BadRequestError('Name of category must have more than 2 letters.');
     }
     try {
         const newCategory = new Category({ name });
         const result = await newCategory.save();
     } catch (error) {
         if (error.code === 11000) {
-            throw { status: 400, message: 'Category name already exists.' };
+            throw new BadRequestError('Category name already exists.');
         }
         throw error;
     }
     
     
-    return result;
+    return { result };
 }
 
 export async function deleteCategory(categoryId) {
     if (!categoryId || !isValidObjectId(categoryId)) {
-        throw { status: 400, message: 'Category ID is required.' };
+        throw new BadRequestError('Category ID is required.');
     }
     const result = await Category.findByIdAndDelete(categoryId);
 
     if (!result) {
-        throw { status: 404, message: 'Category not found.' };
+        throw new NotFoundError('Category not found.');
     }
-    return result;
+    return { result };
 }
 
 export async function updateCategory(categoryId, { name }) {
     if (!categoryId || !isValidObjectId(categoryId)) {
-        throw { status: 400, message: 'Category ID is required.' };
+        throw new BadRequestError('Category ID is required.');
     }
     
     if (!name || name.length < 2) {
-        throw { status: 400, message: 'Name of category must have more than 2 letters.' };
+        throw new BadRequestError('Name of category must have more than 2 letters.');
     }
 
     try {
         const result = await Category.findByIdAndUpdate(categoryId, { name }, { new: true });
         if (!result) {
-            throw { status: 404, message: 'Category not found.' };
+            throw new NotFoundError('Category not found.');
         }
 
-        return result;
+        return { result };
         
     } catch (error) {
         if (error.code === 11000) {
-            throw { status: 400, message: 'Category name already exists.' };
+            throw new BadRequestError('Category name already exists.');
         }
         throw error;
-    }
-
-    
-
-    
-    
-   
+    } 
 }
 
 export async function getCategoryById({categoryId}) {
     if (!categoryId || !isValidObjectId(categoryId)) {
-        throw { status: 400, message: 'Category ID is required.' };
+        throw new BadRequestError('Category ID is required.');
     }
-    return await Category.findById(categoryId);
+    const result = await Category.findById(categoryId);
+    if (!result) {
+        throw new NotFoundError('Category not found.');
+    }
+    return { result };
 }
 
 export async function getCategoryWithCount({categoryId}) {
     if (!categoryId || !isValidObjectId(categoryId)) {
-        throw { status: 400, message: 'Category ID is required.' };
+        throw new BadRequestError('Category ID is required.');
     }
 
     const result = await Category.aggregate([
@@ -123,5 +123,5 @@ export async function getCategoryWithCount({categoryId}) {
         }
     ]);
 
-    return result[0] || null;
+    return { result: result[0] || null };
 }
