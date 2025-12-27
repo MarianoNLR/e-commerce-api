@@ -48,6 +48,7 @@ export async function payWithMercadoPago({ orderId, status, paymentId }) {
         throw err;   
     }
 
+    // TODO: transactional stock update, if one fails, rollback order status update
     for (let i = 0; i < order.items.length; i++) {
         console.log(order.items[i].productId, order.items[i].quantity)
         if (!await productService.decreaseStock(order.items[i].productId, order.items[i].quantity)) {
