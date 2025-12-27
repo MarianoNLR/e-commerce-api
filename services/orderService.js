@@ -22,7 +22,7 @@ export async function getOrderById(orderId) {
         .populate('products.product');
     
     if (order) {
-        return order;
+        return { order };
     } else {
         const err = new Error('Order not found.');
         err.status = 404;
@@ -37,7 +37,7 @@ export async function updateOrderStatus({ orderId, status }) {
         err.status = 404;
         throw err;   
     }
-    return order;
+    return { order };
 }
 
 export async function payWithMercadoPago({ orderId, status, paymentId }) {
@@ -55,7 +55,7 @@ export async function payWithMercadoPago({ orderId, status, paymentId }) {
             return
         }
     }
-    return order;
+    return { order };
 }
 
 export async function updateOrder(orderId, updateData) {
@@ -65,7 +65,7 @@ export async function updateOrder(orderId, updateData) {
         err.status = 404;
         throw err;   
     }
-    return order;
+    return { order };
 }
 
 export async function createOrder({ userId, shippingInfo }) {
@@ -93,5 +93,5 @@ export async function createOrder({ userId, shippingInfo }) {
 
     await newOrder.save();
     
-    return newOrder;
+    return { newOrder };
 }
