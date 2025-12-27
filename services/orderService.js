@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
 import * as productService from './productService.js';
+import { NotFoundError } from '../errors/NotFoundError.js';
 
 export async function getOrders({ page = 0, limit = 5 }) {
     const skip = page * limit;
@@ -24,18 +25,14 @@ export async function getOrderById(orderId) {
     if (order) {
         return { order };
     } else {
-        const err = new Error('Order not found.');
-        err.status = 404;
-        throw err;
+        throw new NotFoundError('Order not found.');
     }
 }
 
 export async function updateOrderStatus({ orderId, status }) {
     const order = await Order.findByIdAndUpdate(orderId, { status }, { new: true });
     if (!order) {
-        const err = new Error('Order not found.');
-        err.status = 404;
-        throw err;   
+        throw new NotFoundError('Order not found.'); 
     }
     return { order };
 }
@@ -43,9 +40,7 @@ export async function updateOrderStatus({ orderId, status }) {
 export async function payWithMercadoPago({ orderId, status, paymentId }) {
     const order = await Order.findByIdAndUpdate(orderId, { status, payment_id: paymentId }, { new: true });
     if (!order) {
-        const err = new Error('Order not found.');
-        err.status = 404;
-        throw err;   
+        throw new NotFoundError('Order not found.');  
     }
 
     // TODO: transactional stock update, if one fails, rollback order status update
@@ -62,9 +57,7 @@ export async function payWithMercadoPago({ orderId, status, paymentId }) {
 export async function updateOrder(orderId, updateData) {
     const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
     if (!order) {
-        const err = new Error('Order not found.');
-        err.status = 404;
-        throw err;   
+        throw new NotFoundError('Order not found.');   
     }
     return { order };
 }
@@ -72,9 +65,7 @@ export async function updateOrder(orderId, updateData) {
 export async function createOrder({ userId, shippingInfo }) {
     const [cartUser] = await Cart.find({ user: userId });
     if (!cartUser) {
-        const err = new Error('Cart not found.');
-        err.status = 404;
-        throw err;   
+        throw new NotFoundError('Cart not found.');   
     }
 
     const newOrder = new Order({
