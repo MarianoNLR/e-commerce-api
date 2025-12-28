@@ -4,16 +4,16 @@ import * as orderService from '../services/orderService.js'
 
 export async function getOrders (req, res) {
   try {
-    const orders = await orderService.getOrders({
+    const result = await orderService.getOrders({
       page: parseInt(req.query.page) || 0,
       limit: 5
     })
-    res.status(200).json(orders)
+    res.status(200).json(result)
   }
  
   catch (error) {
     console.error('Failed to fetch orders:', error)
-    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
@@ -27,7 +27,7 @@ export async function getOrderById (req, res) {
     res.status(200).json(order)
   } catch (error) {
     console.error('Failed to get order by ID:', error)
-    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
@@ -35,16 +35,16 @@ export async function updateOrderStatus (req, res) {
   const { orderId } = req.params
   const { status } = req.body
   try {
-    const order = await orderService.updateOrderStatus({ orderId, status })
+    const result = await orderService.updateOrderStatus({ orderId, status })
     
-    return res.status(200).json(order)
+    return res.status(200).json({ order: result })
   } catch (error) {
     console.error('Failed to update order status:', error)
-    return res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
-export async function payWithMercadoPago (req, res) {
+export async function payWithMercadoPago (req, res, next) {
   const { orderId } = req.params
   const { status, payment_id: paymentId } = req.body
   console.log('UPDATE ORDER STATUS REQ.BODY: ', req.body)
@@ -63,7 +63,7 @@ export async function payWithMercadoPago (req, res) {
   } catch (error) {
     // res.status(500).json({ error: 'Failed to update order status.' })
     console.error('Failed to update order status:', error)
-    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
@@ -73,10 +73,10 @@ export async function updateOrder (req, res) {
   try {
     //const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true })
     const order = await orderService.updateOrder(orderId, updateData)
-    res.status(200).json(order)
+    res.status(200).json({ order })
   } catch (error) {
     console.error('Failed to update order:', error)
-    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
 
@@ -85,9 +85,9 @@ export async function createOrder (req, res) {
     const { shipping_info: shippingInfo } = req.body
     console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
     const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo })
-    res.status(201).json(newOrder)
+    res.status(201).json({ newOrder })
   } catch (error) {
     console.error('An error has ocurred while creating order.', error)
-    res.status(error.status || 500).json({ error: error.message || 'Internal Server Error' })
+    next(error)
   }
 }
