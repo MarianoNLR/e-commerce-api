@@ -23,7 +23,7 @@ export async function getCart (req, res) {
   const { userId } = req.params
   try {
     const cart = await cartService.getCartByUserId(userId)
-    return res.status(200).json({ cart })
+    return res.status(200).json( cart )
   } catch (error) {
     console.error(error)
     next(error)
