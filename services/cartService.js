@@ -77,5 +77,5 @@ export async function deleteItemFromCart(userId, productId) {
         new: true
     })
     const [updatedCart] = await Cart.find({ user: userId }).populate('items.product')
-    return { updatedCart }
+    return updatedCart
 }

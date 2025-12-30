@@ -7,7 +7,7 @@ const isValidObjectId = (id) => mongoose.isValidObjectId(id);
 
 export async function getAll() {
     const categories = await Category.find({});
-    return { categories };
+    return categories;
 }
 
 export async function getAllWithCount() {
@@ -29,7 +29,7 @@ export async function getAllWithCount() {
         }
     ])
 
-    return { categories };
+    return categories;
 }
 
 export async function addCategory({ name }) {
@@ -47,7 +47,7 @@ export async function addCategory({ name }) {
     }
     
     
-    return { result };
+    return result;
 }
 
 export async function deleteCategory(categoryId) {
@@ -59,7 +59,7 @@ export async function deleteCategory(categoryId) {
     if (!result) {
         throw new NotFoundError('Category not found.');
     }
-    return { result };
+    return result;
 }
 
 export async function updateCategory(categoryId, { name }) {
@@ -77,7 +77,7 @@ export async function updateCategory(categoryId, { name }) {
             throw new NotFoundError('Category not found.');
         }
 
-        return { result };
+        return result;
         
     } catch (error) {
         if (error.code === 11000) {
@@ -95,7 +95,7 @@ export async function getCategoryById({categoryId}) {
     if (!result) {
         throw new NotFoundError('Category not found.');
     }
-    return { result };
+    return result;
 }
 
 export async function getCategoryWithCount({categoryId}) {
@@ -123,5 +123,5 @@ export async function getCategoryWithCount({categoryId}) {
         }
     ]);
 
-    return { result: result[0] || null };
+    return result[0] || null ;
 }

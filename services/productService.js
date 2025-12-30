@@ -1,5 +1,6 @@
 import Product from "../models/Product.js"
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
+import mongoose from "mongoose";
 import path, { extname } from "path";
 import { unlink } from "fs/promises";
 import 'dotenv/config'
@@ -7,12 +8,13 @@ import 'dotenv/config'
 const isValidObjectId = (id) => mongoose.isValidObjectId(id);
 
 export async function getAll({categoryId, filters = {}}) {
-    if (categoryId && isValidObjectId(categoryId)) {
-      filters.categoryId = categoryId
-    } else {
-        const err = new Error('Valid category ID is required')
-        err.status = 400
-        throw err
+    if (categoryId) {
+        if (!isValidObjectId(categoryId)) {
+            const err = new Error('Valid category ID is required')
+            err.status = 400
+            throw err
+        }
+        filters.categoryId = categoryId
     }
 
     const products = await Product.find(filters).collation({ locale: 'es', strength: 2 }).sort({ price: -1 })
@@ -48,7 +50,7 @@ export async function getBySearch({q, filters = {}}) {
     return products
 }
 
-export async function getById({ productId }) {
+export async function getById({ productId }) {  
     if (!productId || !isValidObjectId(productId)) {
         const err = new Error('Valid product ID is required')
         err.status = 400
