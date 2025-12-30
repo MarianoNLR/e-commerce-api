@@ -21,8 +21,6 @@ export async function getAll (req, res) {
 }
 
 export async function getBySearch (req, res) {
-
-
   try {
 
     const { q } = req.query
