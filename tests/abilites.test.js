@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { subject } from "@casl/ability";
-import { defineAbilitiesFor } from "../../casl/abilities.js";
+import { defineAbilitiesFor } from "../casl/abilities.js";
 
 describe("CASL Abilities", () => {
     it("should allow admin to manage all", () => {
