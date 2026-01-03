@@ -39,15 +39,13 @@ export async function addCategory({ name }) {
     try {
         const newCategory = new Category({ name });
         const result = await newCategory.save();
+        return result;
     } catch (error) {
         if (error.code === 11000) {
             throw new BadRequestError('Category name already exists.');
         }
         throw error;
     }
-    
-    
-    return result;
 }
 
 export async function deleteCategory(categoryId) {
