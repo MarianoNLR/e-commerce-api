@@ -1,12 +1,13 @@
 {
   "name": "e-commerce",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch index.js",
-    "start": "node index.js"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "dev": "node --watch server.js",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +37,9 @@
     "streamifier": "^0.1.1"
   },
   "devDependencies": {
-    "standard": "^17.1.0"
+    "mongodb-memory-server": "^11.0.1",
+    "standard": "^17.1.0",
+    "supertest": "^7.1.4",
+    "vitest": "^4.0.16"
   }
 }
