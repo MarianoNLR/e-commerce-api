@@ -5,7 +5,6 @@ import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
-import './mongo.js'
 import productRouter from './routes/productRoutes.js'
 import cartRouter from './routes/cartRoutes.js'
 import categoryRouter from './routes/categoryRoutes.js'
@@ -43,6 +42,8 @@ app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
 })
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on http://localhost:${PORT}`)
-})
+export default app
+
+// app.listen(PORT, '0.0.0.0', () => {
+//   console.log(`Server listening on http://localhost:${PORT}`)
+// })
