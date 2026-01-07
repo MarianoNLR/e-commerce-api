@@ -58,12 +58,12 @@ async function calculateTotalPrice(cart) {
 }
 
 export async function getCartByUserId(userId) {
-    const [cart] = await Cart.find({ user: userId }).populate('items.product')
-    return { cart }
+    const cart = await Cart.findOne({ user: userId }).populate('items.product')
+    return cart
 }
 
 export async function deleteItemFromCart(userId, productId) {
-    const [cart] = await Cart.find({ user: userId }).populate('items.product')
+    const cart = await Cart.findOne({ user: userId }).populate('items.product')
     let totalPrice = cart.totalPrice
     for (let i = 0; i < cart.items.length; i++) {
         const item = cart.items[i]
