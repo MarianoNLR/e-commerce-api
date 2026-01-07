@@ -1,20 +1,18 @@
 import mongoose from 'mongoose'
 
-const { MONGODB_URI } = process.env
+export async function connectDB(uri) {
+  if (mongoose.connection.readyState >= 1) return
 
-const connectionString = MONGODB_URI
-
-mongoose.connect(connectionString, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => {
-    console.log('Database connected')
-  }).catch(err => {
-    console.error(err)
+  await mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
   })
 
-process.on('uncaughtException', error => {
-  console.error(error)
-  mongoose.disconnect()
-})
+  console.log('Database connected')
+}
+
+export async function disconnectDB() {
+  if (mongoose.connection.readyState === 0) return
+  await mongoose.disconnect()
+  console.log('Database disconnected')
+}
