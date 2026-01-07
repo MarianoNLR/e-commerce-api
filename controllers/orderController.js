@@ -2,7 +2,7 @@ import Order from '../models/Order.js'
 import Cart from '../models/Cart.js'
 import * as orderService from '../services/orderService.js'
 
-export async function getOrders (req, res) {
+export async function getOrders (req, res, next) {
   try {
     const result = await orderService.getOrders({
       page: parseInt(req.query.page) || 0,
@@ -17,7 +17,7 @@ export async function getOrders (req, res) {
   }
 }
 
-export async function getOrderById (req, res) {
+export async function getOrderById (req, res, next) {
   const { orderId } = req.params
   try {
     const order = await orderService.getOrderById(orderId)
@@ -31,7 +31,7 @@ export async function getOrderById (req, res) {
   }
 }
 
-export async function updateOrderStatus (req, res) {
+export async function updateOrderStatus (req, res, next) {
   const { orderId } = req.params
   const { status } = req.body
   try {
@@ -67,7 +67,7 @@ export async function payWithMercadoPago (req, res, next) {
   }
 }
 
-export async function updateOrder (req, res) {
+export async function updateOrder (req, res, next) {
   const { orderId } = req.params
   const updateData = req.body
   try {
@@ -80,12 +80,13 @@ export async function updateOrder (req, res) {
   }
 }
 
-export async function createOrder (req, res) {
+export async function createOrder (req, res, next) {
   try {
     const { shipping_info: shippingInfo } = req.body
     console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
     const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo })
-    res.status(201).json({ newOrder })
+    console.log("NEW ORDER: ", newOrder)
+    res.status(201).json( newOrder )
   } catch (error) {
     console.error('An error has ocurred while creating order.', error)
     next(error)
