@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
 import * as productService from './productService.js';
+import { getCartByUserId } from './cartService.js';
 import { NotFoundError } from '../errors/NotFoundError.js';
 
 export async function getOrders({ page = 0, limit = 5 }) {
@@ -63,7 +64,7 @@ export async function updateOrder(orderId, updateData) {
 }
 
 export async function createOrder({ userId, shippingInfo }) {
-    const [cartUser] = await Cart.find({ user: userId });
+    const cartUser = await getCartByUserId(userId);
     if (!cartUser) {
         throw new NotFoundError('Cart not found.');   
     }
