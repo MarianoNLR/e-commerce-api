@@ -1,6 +1,6 @@
 # 🛒 E-commerce API – Backend
 
-## API REST para un sistema de e-commerce. Maneja usuarios, productos, carritos y órdenes, e integra pasarela de pago, Google OAuth2 y Envios de correos.
+## API REST para un sistema de e-commerce. Maneja usuarios, productos, carritos y órdenes, e integra pasarela de pago, Google OAuth2 y envíos de correos.
 ### Estado: En Desarrollo. Algunas funcionalidades están incompletas o pendientes de revisión.
 
 ## 🚀 Funcionalidades
@@ -44,7 +44,7 @@
 
 ### Variables de entorno (.env)
 - PORT
--  MONGODB_URI
+- MONGODB_URI
 - JWT_SECRET
 - MP_ACCESS_TOKEN
 - GMAIL_APP_PASSWORD
