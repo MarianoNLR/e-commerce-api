@@ -31,12 +31,12 @@ const imageDirectory = join(__dirname, 'uploads')
 
 app.use('/uploads', express.static(imageDirectory))
 
-app.use('/users', userRouter)
-app.use('/products', productRouter)
-app.use('/cart', cartRouter)
-app.use('/category', categoryRouter)
-app.use('/checkout', checkoutRouter)
-app.use('/orders', orderRouter)
+app.use('/api/v1/users', userRouter)
+app.use('/api/v1/products', productRouter)
+app.use('/api/v1/cart', cartRouter)
+app.use('/api/v1/category', categoryRouter)
+app.use('/api/v1/checkout', checkoutRouter)
+app.use('/api/v1/orders', orderRouter)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
