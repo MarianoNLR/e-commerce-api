@@ -1,7 +1,10 @@
 # 🛒 E-commerce API – Backend
 
 ## API REST para un sistema de e-commerce. Maneja usuarios, productos, carritos y órdenes, e integra pasarela de pago, Google OAuth2 y envíos de correos.
+### 🔴 Link API: https://e-commerce-api-gpfg.onrender.com/
 ### Estado: En Desarrollo. Algunas funcionalidades están incompletas o pendientes de revisión.
+
+
 
 ## 🚀 Funcionalidades
 
@@ -64,4 +67,5 @@
 
 ## 📚 Documentación API
 Pendiente
+
 
