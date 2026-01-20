@@ -48,7 +48,7 @@ export async function register ({ name, lastName, email, password, confirmPasswo
     })
     await newUser.save()
     const token = await login({ email: newUser.email, password })
-    return { token }
+    return token
 }
 
 export async function loginUserFromGoogle ({ googleId, email }) {
