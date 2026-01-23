@@ -1,14 +1,16 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
+import crypto from 'crypto'
 import 'dotenv/config'
 import User from '../models/User.js'
 import { verifyToken } from '../utils/verifyToken.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
+import Session from '../models/Session.js'
 
-const { JWT_SECRET } = process.env
+const { JWT_SECRET, JWT_REFRESH_TOKEN_SECRET } = process.env
 
-export async function login ({ email, password }) {
+export async function login ({ email, password, userAgent, ipAddress }) {
     const user = await User.findOne({ email })
     if (!user) {
         throw new BadRequestError('Email or password incorrect.')
@@ -18,15 +20,19 @@ export async function login ({ email, password }) {
     if (!passwordMatch) {
         throw new BadRequestError('Email or password incorrect.')
     }
-    const token = jwt.sign({ userId: user._id}, JWT_SECRET)
+    const accessToken = jwt.sign({ userId: user._id}, JWT_SECRET, { expiresIn: '15m' })
 
-    // res.cookie('access_token', token, {
-    //   httpOnly: true,
-    //   secure: true,
-    //   sameSite: 'None'
-    // })
+    const refreshToken = jwt.sign({ userId: user._id}, JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
+    const refrehTokenHashed = crypto.createHash('sha256').update(refreshToken).digest('hex')
 
-    return { token }
+    await Session.create({
+        user: user._id,
+        refreshToken: refrehTokenHashed,
+        ipAddress,
+        expiresAt: new Date(Date.now() + 7*24*60*60*1000) // 7 days
+    })
+
+    return { accessToken, refreshToken }
 }
 
 export async function register ({ name, lastName, email, password, confirmPassword }) {
