@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { register, login, loginUserFromGoogle, completeGoogleSignup, logout } from '../controllers/authController.js';
+import { register, login, loginUserFromGoogle, completeGoogleSignup, logout, refreshToken } from '../controllers/authController.js';
 
 const authRouter = Router();
 
 authRouter.post('/register', register)
 authRouter.post('/login', login)
+authRouter.post('/refresh-token', refreshToken)
 authRouter.get('/google', 
     (req, res, next) => {
         passport.authenticate('google', {
