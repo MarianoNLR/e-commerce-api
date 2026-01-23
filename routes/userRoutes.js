@@ -1,24 +1,23 @@
 import express from 'express'
-import { login, loginUserFromGoogle, register, completeGoogleSignup, logout, getAllUsers, getMe, getUserById } from '../controllers/userController.js'
+import { getAllUsers, getMe, getUserById } from '../controllers/userController.js'
 import { authUser } from '../middlewares/authUser.js'
 import User from '../models/User.js'
-import passport from 'passport'
 
 const userRouter = express.Router()
 
-userRouter.post('/register', register)
-userRouter.post('/complete-google-signup', completeGoogleSignup)
-userRouter.post('/login', login)
-userRouter.get('/google', 
-    (req, res, next) => {
-        passport.authenticate('google', {
-            scope: ['profile', 'email'], 
-            state: req.query.state || "default" 
-        })(req, res, next)
-    }
-)
-userRouter.get('/google/callback', passport.authenticate('google', { session: false }), loginUserFromGoogle)
-userRouter.post('/logout', logout)
+// userRouter.post('/register', register)
+// userRouter.post('/complete-google-signup', completeGoogleSignup)
+// userRouter.post('/login', login)
+// userRouter.get('/google', 
+//     (req, res, next) => {
+//         passport.authenticate('google', {
+//             scope: ['profile', 'email'], 
+//             state: req.query.state || "default" 
+//         })(req, res, next)
+//     }
+// )
+// userRouter.get('/google/callback', passport.authenticate('google', { session: false }), loginUserFromGoogle)
+// userRouter.post('/logout', logout)
 userRouter.get('/me', authUser, getMe)
 userRouter.get('/:id', getUserById)
 userRouter.post('/email-check', async (req, res) => {
