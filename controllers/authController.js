@@ -1,16 +1,88 @@
 import * as authService from '../services/authService.js'
 import { UnauthorizedError } from '../errors/UnauthorizedError.js'
+import jwt from 'jsonwebtoken'
+import 'dotenv/config'
+import crypto from 'crypto'
+import Session from '../models/Session.js'
+import { verifyRefreshToken } from '../utils/verifyToken.js'
 
 export async function login (req, res, next) {
   const { email, password } = req.body
 
   try {
-    const token = await authService.login({ email, password })
-    return res.status(200).json(token)
+    const {accessToken, refreshToken} = await authService.login({ email, password, userAgent: req.get('User-Agent'), ipAddress: req.ip })
+
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7*24*60*60*1000
+    })
+    return res.status(200).json(accessToken)
   }
   catch (error) {
     next(error)
   }
+}
+
+export async function refreshToken (req, res, next) {
+  try {
+    const { refresh_token } = req.cookies
+
+    if (!refresh_token) {
+      throw new UnauthorizedError('No refresh token provided.')
+    }
+
+    let payload
+    payload = verifyRefreshToken(refresh_token)
+      
+    const hashRefreshToken = crypto.createHash('sha256').update(refresh_token).digest('hex')
+
+    const session = await Session.findOne({
+      user: payload.userId,
+      refreshToken: hashRefreshToken,
+      revoked: false,
+      expiresAt: { $gt: new Date() }
+    })
+
+    if (!session) {
+      await Session.updateMany(
+        { user: payload.userId},
+        { revoked: true }
+      )
+      throw new UnauthorizedError('Refresh token revoked or expired.')
+    }
+
+    session.revoked = true
+    await session.save()
+
+    // Generate new tokens
+    const newAccessToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, { expiresIn: '15m' })
+    const newRefreshToken = jwt.sign({ userId: payload.userId }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
+    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10)
+
+    // Create new session
+    await Session.create({
+      user: payload.userId,
+      refreshToken: hashedNewRefreshToken,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      expiresAt: new Date(Date.now() + 7*24*60*60*1000)
+    })
+
+    // Set new refresh token in cookie
+    res.cookie('refresh_token', newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7*24*60*60*1000
+    })
+
+    res.json({ accessToken: newAccessToken })
+  } catch (error) {
+    next(error)
+  }
+  
 }
 
 export async function completeGoogleSignup (req, res, next) {
