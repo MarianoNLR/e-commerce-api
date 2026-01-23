@@ -12,6 +12,7 @@ import checkoutRouter from './routes/checkoutRoutes.js'
 import orderRouter from './routes/orderRoutes.js'
 import './config/passport.js'
 import authRouter from './routes/authRoutes.js'
+import { errorHandler } from './middlewares/errorHandler.js'
 
 const app = express()
 
@@ -43,6 +44,8 @@ app.use('/api/v1/orders', orderRouter)
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
 })
+
+app.use(errorHandler)
 
 export default app
 
