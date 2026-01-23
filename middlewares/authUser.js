@@ -7,33 +7,37 @@ import { UnauthorizedError } from '../errors/UnauthorizedError.js'
 const { JWT_SECRET } = process.env
 
 export const authUser = async (req, res, next) => {
+  try {
+    // Get token from Authorization header
+    const authorization = req.get('authorization')
 
-  // Get token from Authorization header
-  const authorization = req.get('authorization')
+    // if authorization header is missing or doesn't start with 'Bearer ' throw error
+    if (!authorization?.startsWith('Bearer ')) {
+      throw new UnauthorizedError('Token missing or invalid.')
+    }
 
-  // if authorization header is missing or doesn't start with 'Bearer ' throw error
-  if (!authorization?.startsWith('Bearer ')) {
-    return next(new UnauthorizedError('Token missing or invalid.'))
-  }
+    // Get only the token part
+    const token = authorization.substring(7)
 
-  // Get only the token part
-  const token = authorization.substring(7)
+    // Verify token and get decoded data
+    const decodedToken = verifyToken(token)
 
-  // Verify token and get decoded data
-  const decodedToken = verifyToken(token)
-
-  if (!decodedToken?.userId) {
-    return next(new UnauthorizedError('Token missing or invalid.'))
+    if (!decodedToken?.userId) {
+      throw new UnauthorizedError('Token missing or invalid.')
+    }
+    
+    // Set user info in request object
+    const user = await User.findById(decodedToken.userId).select('-password')
+    if (!user) {
+      throw new UnauthorizedError('User not found for token.')
+    }
+    req.user = user
+    req.userId = user._id
+    next()
+  } catch (error) {
+    return next(error)
   }
   
-  // Set user info in request object
-  const user = await User.findById(decodedToken.userId).select('-password')
-  if (!user) {
-    return next(new UnauthorizedError('User not found for token.'))
-  }
-  req.user = user
-  req.userId = user._id
-  next()
 
   // To use with cookies
   // if (!req.cookies || !req.cookies.access_token) {
