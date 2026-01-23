@@ -8,7 +8,7 @@ export async function getOrders (req, res, next) {
       page: parseInt(req.query.page) || 0,
       limit: 5
     })
-    res.status(200).json(result)
+    return res.status(200).json(result)
   }
  
   catch (error) {
@@ -24,7 +24,7 @@ export async function getOrderById (req, res, next) {
     if (!order) {
       return res.status(404).json({ error: 'Order not found.' })
     }
-    res.status(200).json(order)
+    return res.status(200).json(order)
   } catch (error) {
     console.error('Failed to get order by ID:', error)
     next(error)
@@ -73,7 +73,7 @@ export async function updateOrder (req, res, next) {
   try {
     //const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true })
     const order = await orderService.updateOrder(orderId, updateData)
-    res.status(200).json({ order })
+    return res.status(200).json({ order })
   } catch (error) {
     console.error('Failed to update order:', error)
     next(error)
@@ -86,7 +86,7 @@ export async function createOrder (req, res, next) {
     console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
     const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo })
     console.log("NEW ORDER: ", newOrder)
-    res.status(201).json( newOrder )
+    return res.status(201).json( newOrder )
   } catch (error) {
     console.error('An error has ocurred while creating order.', error)
     next(error)
