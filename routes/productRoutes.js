@@ -6,6 +6,8 @@ import { defineAbilityMiddleware } from '../middlewares/ability.js'
 import { dirname, join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import multer from 'multer'
+import { validate } from '../middlewares/validate.js'
+import { getBySearchSchema, getByIdSchema, addProductSchema, updateProductSchema, updateProductStockSchema, deleteProductSchema } from '../validators/product.schema.js'
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url))
 const MIMETYPES = ['image/jpeg', 'image/png']
@@ -36,15 +38,16 @@ productRouter.post('/', (req, res, next) => {
     if (err) {
       res.status(400).json({ error: err.message })
     }
+    validate(addProductSchema)
     add(req, res)
   })
 })
-productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), deleteProduct)
-productRouter.get('/product/:productId', getById)
-productRouter.get('/search/', getBySearch)
+productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), validate(deleteProductSchema), deleteProduct)
+productRouter.get('/product/:productId', validate(getByIdSchema), getById)
+productRouter.get('/search/', validate(getBySearchSchema), getBySearch)
 productRouter.get('/:categoryId', getAll)
 productRouter.get('/', getAll)
-productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), (req, res, next) => {
+productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), validate(updateProductSchema), (req, res, next) => {
   multerUpload.array('newImages')(req, res, (err) => {
     if (err) {
       res.status(400).json({ error: err.message })
@@ -52,7 +55,7 @@ productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('updat
     update(req, res)
   })
 })
-productRouter.patch('/stock/:productId', updateProductStock)
+productRouter.patch('/stock/:productId', validate(updateProductStockSchema), updateProductStock)
 //productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 
 export default productRouter
