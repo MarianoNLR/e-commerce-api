@@ -1,7 +1,7 @@
 import express from 'express'
 import { getAll, addCategory, getCategoryById ,deleteCategory, updateCategory } from '../controllers/categoryController.js'
 import { validate } from '../middlewares/validate.js'
-import { getByIdSchema, addCategorySchema, deleteCategorySchema, updateCategorySchema} from '../schemas/categorySchema.js'
+import { getByIdSchema, addCategorySchema, deleteCategorySchema, updateCategorySchema} from '../validators/category.schema.js'
 
 const categoryRouter = express.Router()
 
