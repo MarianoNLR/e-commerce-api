@@ -152,6 +152,12 @@ export async function deleteProduct({ productId }) {
         throw err
     }
 
+    // Also remove the product from all carts
+    await Cart.updateMany(
+        { 'items.product': productId },
+        { $pull: { items: { product: productId } } }
+)
+
     return { message: 'Product deleted successfully' }
 }
 
