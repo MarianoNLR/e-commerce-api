@@ -5,14 +5,6 @@ import { BadRequestError } from '../errors/BadRequestError.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 
 export async function addItemToCart (userId, productId, quantity) {
-    if (!productId) {
-        throw new BadRequestError('Product ID is required')
-    }
-
-    if (!quantity || quantity <= 0) {
-        throw new BadRequestError('Quantity must be greater than zero')
-    }
-
     const product = await Product.findById(productId)
     if (!product) {
         throw new NotFoundError('Product not found')
