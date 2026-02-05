@@ -59,7 +59,7 @@ export async function refreshToken (req, res, next) {
     // Generate new tokens
     const newAccessToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, { expiresIn: '15m' })
     const newRefreshToken = jwt.sign({ userId: payload.userId }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
-    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10)
+    const hashedNewRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex')
 
     // Create new session
     await Session.create({
