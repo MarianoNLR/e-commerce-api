@@ -3,11 +3,11 @@ import 'dotenv/config'
 import Product from '../models/Product.js'
 import * as cartService from '../services/cartService.js'
 
-export async function add (req, res) {
+export async function add (req, res, next) {
   // Create cart if it's first item
   // const user = req.session.user
   const userId = req.userId
-  const { productId, quantity } = req.body.data
+  const { productId, quantity } = req.body
   
   try {
     const result = await cartService.addItemToCart(userId, productId, quantity)
@@ -18,7 +18,7 @@ export async function add (req, res) {
   }
 }
 
-export async function getCart (req, res) {
+export async function getCart (req, res, next) {
   // const user = req.session.user
   const { userId } = req.params
   try {
@@ -30,7 +30,7 @@ export async function getCart (req, res) {
   }
 }
 
-export async function deleteItem (req, res) {
+export async function deleteItem (req, res, next) {
   const userId = req.userId
   try {
     const { product: productId } = req.params
