@@ -8,14 +8,16 @@ const sessionSchema = new Schema({
     },
     refreshToken: { 
         type: String, 
-        required: true
+        required: true,
+        unique: true,
+        index: true
     },
     userAgent: { 
         type: String 
     },
-    revoked: { 
-        type: Boolean, 
-        default: false 
+    revokedAt: { 
+        type: Date, 
+        default: null 
     },
     ipAddress: { 
         type: String 
