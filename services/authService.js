@@ -29,13 +29,14 @@ export async function login ({ email, password, userAgent, ipAddress }) {
         user: user._id,
         refreshToken: refrehTokenHashed,
         ipAddress,
+        userAgent,
         expiresAt: new Date(Date.now() + 7*24*60*60*1000) // 7 days
     })
 
     return { accessToken, refreshToken }
 }
 
-export async function register ({ name, lastName, email, password, confirmPassword }) {
+export async function register ({ name, lastName, email, password, confirmPassword, userAgent, ipAddress }) {
     if (password !== confirmPassword) {
         throw new BadRequestError('Passwords do not match.')
     }
@@ -53,7 +54,7 @@ export async function register ({ name, lastName, email, password, confirmPasswo
         password: hashedPassword
     })
     await newUser.save()
-    const token = await login({ email: newUser.email, password })
+    const token = await login({ email: newUser.email, password, userAgent, ipAddress})
     return token
 }
 
