@@ -14,8 +14,8 @@ export async function login (req, res, next) {
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 7*24*60*60*1000
     })
     return res.status(200).json(accessToken)
@@ -32,28 +32,32 @@ export async function refreshToken (req, res, next) {
     if (!refresh_token) {
       throw new UnauthorizedError('No refresh token provided.')
     }
-
     let payload
-    payload = verifyRefreshToken(refresh_token)
+    try {
+      payload = jwt.verify(refresh_token, process.env.JWT_REFRESH_TOKEN_SECRET)
+    } catch (error) {
+      throw new UnauthorizedError('Invalid or expired refresh token.', 'INVALID_REFRESH_TOKEN')
+    }
+    
       
     const hashRefreshToken = crypto.createHash('sha256').update(refresh_token).digest('hex')
 
     const session = await Session.findOne({
       user: payload.userId,
       refreshToken: hashRefreshToken,
-      revoked: false,
+      revokedAt: null,
       expiresAt: { $gt: new Date() }
     })
 
     if (!session) {
       await Session.updateMany(
         { user: payload.userId},
-        { revoked: true }
+        { revokedAt: new Date() }
       )
-      throw new UnauthorizedError('Refresh token revoked or expired.')
+      throw new UnauthorizedError('Refresh token reuse detected. All sessions revoked.', 'REFRESH_TOKEN_REUSE')
     }
 
-    session.revoked = true
+    session.revokedAt = new Date()
     await session.save()
 
     // Generate new tokens
@@ -73,8 +77,8 @@ export async function refreshToken (req, res, next) {
     // Set new refresh token in cookie
     res.cookie('refresh_token', newRefreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 7*24*60*60*1000
     })
 
@@ -133,5 +137,7 @@ export async function register (req, res, next) {
 }
 
 export async function logout (req, res, next) {
-  res.clearCookie('access_token').json({ message: 'Logout successfully.' })
+  
+  await Session.deleteOne({ refreshToken: req.cookies.refresh_token })
+  res.clearCookie('refresh_token').json({ message: 'Logout successfully.' })
 }
