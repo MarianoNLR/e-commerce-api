@@ -71,7 +71,7 @@ export async function loginUserFromGoogle ({ googleId, email }) {
         }
     }
 
-    const token = jwt.sign({ userId: existingUser._id, role: existingUser.role }, JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign({ userId: existingUser._id, role: existingUser.role }, JWT_SECRET, { expiresIn: '15m' })
     // const payload = { token, email, isNewUser: false }
     return {
         token,
@@ -95,7 +95,7 @@ export async function completeGoogleSignup ({ token, name, lastName }) {
         email,
     })
     await newUser.save()
-    const authToken = jwt.sign({ userId: newUser._id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' })
+    const authToken = jwt.sign({ userId: newUser._id, role: newUser.role }, JWT_SECRET, { expiresIn: '15m' })
     return {
         token: authToken, 
         user: { name: newUser.name, lastName: newUser.lastName, email: newUser.email }
