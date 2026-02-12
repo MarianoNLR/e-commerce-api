@@ -64,11 +64,11 @@ export async function updateOrder(orderId, updateData) {
 }
 
 export async function createOrder({ userId, shippingInfo }) {
-    const cartUser = await getCartByUserId(userId);
+    const cartUser = await Cart.findOne({ user: userId }).populate('items.product');
     if (!cartUser) {
         throw new NotFoundError('Cart not found.');   
     }
-
+    console.log("Cart User in create order: ", cartUser)
     const newOrder = new Order({
         user: userId,
         items: cartUser.items.map(item => ({
@@ -82,9 +82,9 @@ export async function createOrder({ userId, shippingInfo }) {
         shipping_info: shippingInfo,
     });
 
-    await Cart.findOneAndDelete({ user: userId });
+    // await Cart.findOneAndDelete({ user: userId });
 
     await newOrder.save();
-    
+    console.log("New Order created: ", newOrder);
     return { newOrder };
 }
