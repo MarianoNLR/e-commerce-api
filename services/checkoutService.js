@@ -1,8 +1,22 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 import Cart from '../models/Cart.js'
 import Order from '../models/Order.js'
+import * as orderService from './orderService.js'
 import { sendOrderEmail } from '../emailController/emailController.js'
 import 'dotenv/config'
+import { AppError } from '../errors/AppError.js'
+import { NotFoundError } from '../errors/NotFoundError.js'
+
+const MP_STATUS_MAP = Object.freeze({
+    approved: 'paid',
+    pending: 'pending_payment',
+    authorized: 'pending_payment',
+    rejected: 'payment_failed',
+    in_process: 'pending_payment',
+    refunded: 'cancelled',
+    charged_back: 'cancelled',
+    cancelled: 'cancelled'
+})
 
 const { MP_ACCESS_TOKEN } = process.env
 
@@ -17,7 +31,7 @@ export async function setPreferences ({ userId, shipping_info }) {
     const preference = new Preference(client)
     const items = []
     console.log('Shipment Info: ', shipping_info)
-    if (!cart) return res.status(404).json({ error: 'Cart not found.' })
+    if (!cart) throw new AppError('Cart not found for user.', 404)
 
     console.log(cart.items[0].product)
     for (let i = 0; i < cart.items.length; i++) {
@@ -29,7 +43,8 @@ export async function setPreferences ({ userId, shipping_info }) {
         })
     }
     try {
-        const currentOrder = await orderService.createOrder({userId,  shipping_info: req.body.shipping_info })
+        const {newOrder} = await orderService.createOrder({userId,  shippingInfo: shipping_info})
+        console.log('Current Order in setPreferences: ', newOrder)
         const result = await preference.create({
             body: {
                 items,
@@ -39,8 +54,8 @@ export async function setPreferences ({ userId, shipping_info }) {
                 pending: 'https://google.com'
                 },
                 auto_return: 'all',
-                notification_url: 'https://14b2bab6521b.ngrok-free.app/checkout/webhook',
-                external_reference: { userId, orderId: currentOrder.id } // Send object with User ID and orderID
+                notification_url: 'https://fd18-2803-9800-94c2-8fe5-5448-82e8-efa9-c968.ngrok-free.app/api/v1/checkout/webhook',
+                external_reference: newOrder._id
             }
             });
             console.log('PREFERENCES: ', result)
@@ -53,26 +68,64 @@ export async function setPreferences ({ userId, shipping_info }) {
 }
 
 export async function receiveWebhook ({ paymentInfo }) {
-    console.log('PAYMENT INFO: ', paymentInfo)
-    try {
-        if (paymentInfo.type === 'payment') {
-        const paymentData = await payment.get({
-            id: paymentInfo['data.id']
-        })
+    console.log('PAYMENT INFO EN RECIEVE WEBHOOK SERVICE: ', paymentInfo)
+    const eventType = paymentInfo.type || paymentInfo.topic
+    if (eventType !== 'payment') return
 
-        console.log('PAYMENT DATA: ', paymentData)
-        const externalReference = JSON.parse(paymentData.external_reference)
-        req.params.orderId = externalReference.orderId
-        req.body.status = 'paid'
-        req.body.payment_id = paymentData.id
+    const paymentId = paymentInfo['data.id'] || paymentInfo.id
+    console.log('Received payment webhook with ID:', paymentId)
+    const paymentData = await payment.get({
+        id: paymentId
+    })
 
-        const updatedOrder = await orderService.payWithMercadoPago({ orderId: req.params.orderId, status: req.body.status, paymentId: paymentData.id })
-        await Cart.findOneAndDelete({ user: req.userId })
-        console.log('UPDATED ORDER: ', updatedOrder)
-        await sendOrderEmail(updatedOrder)
-        return updatedOrder
-        }
-    } catch (error) {
-        return res.status(500).json({ error })
+    const { status, transaction_amount, id } = paymentData
+    const externalReference = paymentData.external_reference
+
+    console.log('PAYMENT DATA: ', status, transaction_amount, id, externalReference)
+
+    const order = await Order.findById(externalReference)
+    if (!order) {
+        console.error('Order not found for ID:', externalReference)
+        throw new NotFoundError('Order not found.');
     }
+
+    // Idempotency check
+    if (order.payment_id === id) return order
+
+    // Validate payment amount
+    if (order.total !== transaction_amount) {
+        console.error('Payment amount does not match order total. Order ID:', externalReference.orderId)
+        throw new AppError('Payment amount mismatch.', 400);
+    }
+
+    let newStatusOrder = MP_STATUS_MAP[status]
+    if (!newStatusOrder) {
+        console.error('Unknown payment status received from MercadoPago:', status)
+        throw new AppError('Unknown payment status.', 400);
+    }
+
+    // req.params.orderId = externalReference.orderId
+    // req.body.status = 'paid'
+    // req.body.payment_id = paymentData.id
+    const updatedOrder = await Order.findOneAndUpdate({
+        _id: externalReference,
+        payment_id: { $ne: id.toString() } // Ensure we don't update if this payment ID has already been processed
+    }, {
+        $set: {
+            status: newStatusOrder,
+            payment_id: id.toString()
+        }
+    },{ new: true })
+    
+    if (!updatedOrder) {
+        // This means the order was not found or it has already been updated with this payment ID (idempotency)
+        return
+    }
+
+    if (status === 'approved') {
+        await Cart.findOneAndDelete({ user: updatedOrder.user });
+        await sendOrderEmail(updatedOrder)
+    }
+    
+    return updatedOrder
 }
