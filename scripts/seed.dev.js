@@ -52,7 +52,8 @@ await Cart.create({
             product: product2._id,
             quantity: 1
         }
-    ]
+    ],
+    totalPrice: 69.97
 })
 console.log('Database seeded successfully.')
 await disconnectDB()
