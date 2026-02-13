@@ -104,9 +104,6 @@ export async function receiveWebhook ({ paymentInfo }) {
         throw new AppError('Unknown payment status.', 400);
     }
 
-    // req.params.orderId = externalReference.orderId
-    // req.body.status = 'paid'
-    // req.body.payment_id = paymentData.id
     const updatedOrder = await Order.findOneAndUpdate({
         _id: externalReference,
         payment_id: { $ne: id.toString() } // Ensure we don't update if this payment ID has already been processed
