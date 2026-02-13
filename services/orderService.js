@@ -3,6 +3,8 @@ import Cart from '../models/Cart.js';
 import * as productService from './productService.js';
 import { getCartByUserId } from './cartService.js';
 import { NotFoundError } from '../errors/NotFoundError.js';
+import { BadRequestError } from '../errors/BadRequestError.js';
+import mongoose from 'mongoose';
 
 export async function getOrders({ page = 0, limit = 5 }) {
     const skip = page * limit;
@@ -69,22 +71,58 @@ export async function createOrder({ userId, shippingInfo }) {
         throw new NotFoundError('Cart not found.');   
     }
     console.log("Cart User in create order: ", cartUser)
-    const newOrder = new Order({
-        user: userId,
-        items: cartUser.items.map(item => ({
-            productId: item.product._id,
-            name: item.product.name,
-            description: item.product.description,
-            priceAtPurchase: item.product.price,
-            quantity: item.quantity
-        })),
-        total: cartUser.totalPrice,
-        shipping_info: shippingInfo,
-    });
+    // Transactional stock update and order creation
+    try {
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-    // await Cart.findOneAndDelete({ user: userId });
+        // recalculate total price
+        const total = cartUser.items.reduce((total, item) => {
+            return total + item.product.price * item.quantity;
+        }, 0);
 
-    await newOrder.save();
-    console.log("New Order created: ", newOrder);
-    return { newOrder };
+        for (const item of cartUser.items) {
+            console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
+            const updated = await Product.findOneAndUpdate(
+                { _id: item.product._id, stock: 
+                    { $gte: item.quantity } 
+                },
+                { $inc: { stock: -item.quantity } },
+                { new: true, session }
+            );
+
+            if (!updated) {
+                throw new BadRequestError(`Insufficient stock for product ${item.product.name}`);
+            }
+        }
+
+        const newOrder = new Order({
+            user: userId,
+            items: cartUser.items.map(item => ({
+                productId: item.product._id,
+                name: item.product.name,
+                description: item.product.description,
+                priceAtPurchase: item.product.price,
+                quantity: item.quantity
+            })),
+            total: total,
+            shipping_info: shippingInfo,
+            status: 'pending_payment'
+        });
+
+        // await Cart.findOneAndDelete({ user: userId });
+
+        await newOrder.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        console.log('New Order Created: ', newOrder)
+        return { newOrder };
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
+    }
 }
