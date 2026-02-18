@@ -1,6 +1,7 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 import Cart from '../models/Cart.js'
 import Order from '../models/Order.js'
+import Product from '../models/Product.js'
 import * as orderService from './orderService.js'
 import { sendOrderEmail } from '../emailController/emailController.js'
 import 'dotenv/config'
@@ -13,8 +14,8 @@ const MP_STATUS_MAP = Object.freeze({
     authorized: 'pending_payment',
     rejected: 'payment_failed',
     in_process: 'pending_payment',
-    refunded: 'cancelled',
-    charged_back: 'cancelled',
+    //refunded: 'refunded',
+    //charged_back: 'cancelled',
     cancelled: 'cancelled'
 })
 
@@ -104,9 +105,12 @@ export async function receiveWebhook ({ paymentInfo }) {
         throw new AppError('Unknown payment status.', 400);
     }
 
+    if (order.status === newStatusOrder) return order;
+
     const updatedOrder = await Order.findOneAndUpdate({
         _id: externalReference,
-        payment_id: { $ne: id.toString() } // Ensure we don't update if this payment ID has already been processed
+        status: 'pending_payment', // Only update if currently pending payment
+        payment_id: { $ne: id.toString() }
     }, {
         $set: {
             status: newStatusOrder,
@@ -119,7 +123,17 @@ export async function receiveWebhook ({ paymentInfo }) {
         return
     }
 
-    if (status === 'approved') {
+    if (order.status === 'pending_payment' && 
+    (newStatusOrder === 'payment_failed' || newStatusOrder === 'cancelled')) {
+        for (const item of order.items) {
+            await Product.findByIdAndUpdate(
+                item.productId,
+                { $inc: { stock: item.quantity } }
+            )
+        }
+    }
+
+    if (newStatusOrder === 'paid') {
         await Cart.findOneAndDelete({ user: updatedOrder.user });
         await sendOrderEmail(updatedOrder)
     }
