@@ -72,8 +72,8 @@ export async function createOrder({ userId, shippingInfo }) {
     }
     console.log("Cart User in create order: ", cartUser)
     // Transactional stock update and order creation
+    const session = await mongoose.startSession();
     try {
-        const session = await mongoose.startSession();
         session.startTransaction();
 
         // recalculate total price
@@ -122,7 +122,8 @@ export async function createOrder({ userId, shippingInfo }) {
 
     } catch (error) {
         await session.abortTransaction();
-        session.endSession();
         throw error;
+    } finally {
+        session.endSession();
     }
 }
