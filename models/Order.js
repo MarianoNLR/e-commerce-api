@@ -43,6 +43,10 @@ const orderSchema = new Schema({
     enum: ['pending_payment', 'paid', 'payment_failed', 'shipped', 'cancelled', 'expired'],
     default: 'pending_payment'
   },
+  expires_at: {
+    type: Date,
+    default: () => new Date(Date.now() + 30 * 60 * 1000)
+  },
   shipping_info: {
     name: {
       type: String,
