@@ -56,7 +56,10 @@ export async function setPreferences ({ userId, shipping_info }) {
                 },
                 auto_return: 'all',
                 notification_url: 'https://fd18-2803-9800-94c2-8fe5-5448-82e8-efa9-c968.ngrok-free.app/api/v1/checkout/webhook',
-                external_reference: newOrder._id
+                external_reference: newOrder._id,
+                expires: true,
+                expiration_date_from: new Date(),
+                expiration_date_to: new Date(Date.now() + 30 * 60 * 1000) // Expira en 30 minutos
             }
             });
             console.log('PREFERENCES: ', result)
