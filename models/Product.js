@@ -10,9 +10,16 @@ const productSchema = new Schema({
   quantity: {
     type: Number
   },
-  imagesURLs: [{
-    type: String
+  images: [{
+    _id: false,
+    public_id: String,
+    secure_url: String
   }],
+  status: {
+    type: String,
+    enum: ['active', 'archived'],
+    default: 'active'
+  },
   categoryId: {
     type: Schema.Types.ObjectId,
     ref: 'Category'
