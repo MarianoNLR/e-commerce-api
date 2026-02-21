@@ -3,7 +3,6 @@ import { Schema, model } from 'mongoose'
 const OrderItemSnapshotSchema = new Schema({
   productId: {
     type: Schema.Types.ObjectId,
-    ref: 'Product',
     required: true
   },
   name: {
