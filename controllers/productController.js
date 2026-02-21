@@ -142,6 +142,17 @@ export async function deleteProduct (req, res) {
   }
 }
 
+export async function softDeleteProduct (req, res, next) {
+  const { id } = req.params
+  try {    
+    const result = await productService.softDeleteProduct({ id })
+    return res.status(200).json({ result, message: 'Product has been archived.' })
+  } catch (error) {
+    console.error('Error archiving product:', error)
+    next(error)
+  }
+}
+
 // export async function updateProductStockPurchase (req, res) {
 //   try {
 //     const product = await Product.findById(productId)
