@@ -1,5 +1,5 @@
 import express from 'express'
-import { add, deleteProduct, getAll, getById, update, getBySearch, updateProductStock } from '../controllers/productController.js'
+import * as productController from '../controllers/productController.js'
 import { authUser } from '../middlewares/authUser.js'
 import { checkAbility } from '../middlewares/checkAbility.js'
 import { defineAbilityMiddleware } from '../middlewares/ability.js'
@@ -8,7 +8,6 @@ import { fileURLToPath } from 'url'
 import multer from 'multer'
 import { validate } from '../middlewares/validate.js'
 import { getBySearchSchema, getByIdSchema, addProductSchema, updateProductSchema, updateProductStockSchema, deleteProductSchema } from '../validators/product.schema.js'
-import { softDeleteProduct } from '../services/productService.js'
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url))
 const MIMETYPES = ['image/jpeg', 'image/png']
@@ -44,21 +43,22 @@ productRouter.post('/', (req, res, next) => {
   })
 })
 
-productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), validate(deleteProductSchema), deleteProduct)
-productRouter.get('/product/:productId', validate(getByIdSchema), getById)
-productRouter.get('/search/', validate(getBySearchSchema), getBySearch)
-productRouter.get('/:categoryId', getAll)
-productRouter.get('/', getAll)
+productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), validate(deleteProductSchema), productController.deleteProduct)
+productRouter.get('/product/:productId', validate(getByIdSchema), productController.getById)
+productRouter.get('/search/', validate(getBySearchSchema), productController.getBySearch)
+productRouter.get('/:categoryId', productController.getAll)
+productRouter.get('/', productController.getAll)
 productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), validate(updateProductSchema), (req, res, next) => {
   multerUpload.array('newImages')(req, res, (err) => {
     if (err) {
       res.status(400).json({ error: err.message })
     }
-    update(req, res)
+    productController.update(req, res)
   })
 })
-productRouter.patch('/:id/disable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), softDeleteProduct)
-productRouter.patch('/stock/:productId', validate(updateProductStockSchema), updateProductStock)
+productRouter.patch('/:id/disable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), productController.softDeleteProduct)
+productRouter.patch('/:id/enable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), productController.reactivateProduct)
+productRouter.patch('/stock/:productId', validate(updateProductStockSchema), productController.updateProductStock)
 //productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 
 export default productRouter

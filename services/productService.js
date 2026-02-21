@@ -173,7 +173,23 @@ export async function softDeleteProduct({ id }) {
         const err = new NotFoundError('Product not found')
         throw err
     }
-    
+
+    return result
+}
+
+export async function reactivateProduct({ id }) {
+    if (!id || !isValidObjectId(id)) {
+        const err = new BadRequestError('Valid product ID is required')
+        throw err
+    }
+
+    const result = await Product.findByIdAndUpdate(id, { status: 'active' }, { new: true })
+
+    if (!result) {
+        const err = new NotFoundError('Product not found')
+        throw err
+    }
+
     return result
 }
 

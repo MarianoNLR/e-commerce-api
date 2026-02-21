@@ -153,6 +153,17 @@ export async function softDeleteProduct (req, res, next) {
   }
 }
 
+export async function reactivateProduct (req, res, next) {
+  const { id } = req.params 
+  try {
+    const result = await productService.reactivateProduct({ id })
+    return res.status(200).json({ result, message: 'Product has been reactivated.' })
+  } catch (error) {
+    console.error('Error reactivating product:', error)
+    next(error)
+  }
+}
+
 // export async function updateProductStockPurchase (req, res) {
 //   try {
 //     const product = await Product.findById(productId)
