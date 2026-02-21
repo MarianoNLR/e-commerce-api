@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import multer from 'multer'
 import { validate } from '../middlewares/validate.js'
 import { getBySearchSchema, getByIdSchema, addProductSchema, updateProductSchema, updateProductStockSchema, deleteProductSchema } from '../validators/product.schema.js'
+import { softDeleteProduct } from '../services/productService.js'
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url))
 const MIMETYPES = ['image/jpeg', 'image/png']
@@ -42,6 +43,7 @@ productRouter.post('/', (req, res, next) => {
     add(req, res)
   })
 })
+
 productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), validate(deleteProductSchema), deleteProduct)
 productRouter.get('/product/:productId', validate(getByIdSchema), getById)
 productRouter.get('/search/', validate(getBySearchSchema), getBySearch)
@@ -55,6 +57,7 @@ productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('updat
     update(req, res)
   })
 })
+productRouter.patch('/:id/disable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), softDeleteProduct)
 productRouter.patch('/stock/:productId', validate(updateProductStockSchema), updateProductStock)
 //productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 

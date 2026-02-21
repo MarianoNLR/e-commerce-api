@@ -161,6 +161,22 @@ export async function deleteProduct({ productId }) {
     return { message: 'Product deleted successfully' }
 }
 
+export async function softDeleteProduct({ id }) {
+    if (!id || !isValidObjectId(id)) {
+        const err = new BadRequestError('Valid product ID is required')
+        throw err
+    }
+
+    const result = await Product.findByIdAndUpdate(id, { status: 'archived' }, { new: true })
+
+    if (!result) {
+        const err = new NotFoundError('Product not found')
+        throw err
+    }
+    
+    return result
+}
+
 export async function updateProductStock({ productId, update}) {
     if (!productId || !isValidObjectId(productId)) {
         const err = new Error('Valid product ID is required')
