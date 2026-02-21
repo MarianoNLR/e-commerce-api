@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "cross-env NODE_ENV=test vitest",
-    "test:run": "vitest run",
+    "test:run": "cross-env NODE_ENV=test vitest run",
     "dev": "cross-env NODE_ENV=development node --watch server.js",
-    "start": "cross-env NODE_ENV=production node server.js",
+    "start": "cross-env NODE_ENV=production node --watch server.js",
     "seed:dev": "cross-env NODE_ENV=development node scripts/seed.dev.js"
   },
   "keywords": [],
