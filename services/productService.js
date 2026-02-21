@@ -67,10 +67,10 @@ export async function getById({ productId }) {
 }
 
 export async function add({ name, price, quantity, categoryId, description, images }) {
-    const imagesURLs = []
+    const imagesArray = []
     const imagesUploads = images.map(image => uploadToCloudinary(image.buffer, 'products'))
     const imagesResults = await Promise.all(imagesUploads)
-    imagesResults.forEach(result => imagesURLs.push(result.secure_url))
+    imagesResults.forEach(result => imagesArray.push({ public_id: result.public_id, secure_url: result.secure_url }))
     // images.filter().forEach(image => {
     // const fileExtension = extname(image.originalname)
     // const fileName = image.filename.split(fileExtension)[0]
@@ -84,7 +84,7 @@ export async function add({ name, price, quantity, categoryId, description, imag
         quantity,
         categoryId,
         description,
-        imagesURLs: imagesURLs
+        images: imagesArray
     })
     console.log('NEW PRODUCT SERVICE: ', newProduct)
     const result = await newProduct.save()
