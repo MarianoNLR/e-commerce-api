@@ -42,27 +42,54 @@ export async function refreshToken (req, res, next) {
       
     const hashRefreshToken = crypto.createHash('sha256').update(refresh_token).digest('hex')
 
-    const session = await Session.findOne({
-      user: payload.userId,
-      refreshToken: hashRefreshToken,
-      revokedAt: null,
-      expiresAt: { $gt: new Date() }
-    })
+    const consumedSession = await Session.findOneAndUpdate(
+      {
+        user: payload.userId,
+        refreshToken: hashRefreshToken,
+        revokedAt: null,
+        expiresAt: { $gt: new Date() }
+      },
+      { revokedAt: new Date() },
 
-    if (!session) {
-      await Session.updateMany(
-        { user: payload.userId},
-        { revokedAt: new Date() }
-      )
-      throw new UnauthorizedError('Refresh token reuse detected. All sessions revoked.', 'REFRESH_TOKEN_REUSE')
+      { new: true }
+    )
+
+    if (!consumedSession) {
+      // Check if the token was already revoked (possible reuse)
+      const existingSession = await Session.findOne({
+        user: payload.userId,
+        refreshToken: hashRefreshToken
+      })
+
+      if (!existingSession) {
+        throw new UnauthorizedError('Refresh token not found. Please log in again.', 'REFRESH_TOKEN_NOT_FOUND')
+      }
+
+      if (existingSession.expiresAt < new Date()) {
+        throw new UnauthorizedError('Refresh token expired. Please log in again.', 'REFRESH_TOKEN_EXPIRED')
+      }
+
+      if (existingSession.revokedAt) {
+        const diff = Date.now() - existingSession.revokedAt.getTime() 
+        // Race condition: If the token was revoked very recently, it might be the same request trying to refresh again before the first one finishes.
+        if (diff < 2000) {
+          throw new UnauthorizedError('Token already rotated.', 'REFRESH_TOKEN_ALREADY_ROTATED')
+        } else {
+          // Revoke all sessions for the user because of possible token reuse
+          await Session.updateMany(
+            { user: payload.userId },
+            { revokedAt: new Date() }
+          )
+          throw new UnauthorizedError('Refresh token reuse detected. All sessions revoked.', 'REFRESH_TOKEN_REUSE')
+        }
+      }
+
+      throw new UnauthorizedError('Refresh token already used.', 'REFRESH_TOKEN_ALREADY_USED')
     }
 
-    session.revokedAt = new Date()
-    await session.save()
-
     // Generate new tokens
-    const newAccessToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, { expiresIn: '15m' })
-    const newRefreshToken = jwt.sign({ userId: payload.userId }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
+    const newAccessToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_SECRET, { expiresIn: '5s' })
+    const newRefreshToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
     const hashedNewRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex')
 
     // Create new session
