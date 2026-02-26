@@ -63,13 +63,13 @@ export async function add (req, res) {
 
 export async function update (req, res) {
   const { id } = req.params
-  const { name, price, quantity, description, imagesToKeep = [] } = req.body
+  const { name, price, quantity, description, imagesToDelete } = req.body
   const { files : newImages } = req
   const productsUpdate = { name, price, quantity, description }
   
-  //console.log(req)
+  const imagesToDeleteFormat = imagesToDelete ? JSON.parse(imagesToDelete) : []
   try {
-    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToKeep: imagesToKeep.length > 0 ? JSON.parse(imagesToKeep) : [] })
+    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToDelete: imagesToDeleteFormat })
     return res.status(200).json({ result })
   } catch (error) {
     console.error('Error updating product:', error)
