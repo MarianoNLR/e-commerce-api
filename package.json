@@ -6,9 +6,9 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test vitest",
     "test:run": "cross-env NODE_ENV=test vitest run",
-    "dev": "cross-env NODE_ENV=development node --watch server.js",
-    "start": "cross-env NODE_ENV=production node --watch server.js",
-    "seed:dev": "cross-env NODE_ENV=development node scripts/seed.dev.js"
+    "dev": "cross-env NODE_ENV=development node --watch ./src/server.js",
+    "start": "cross-env NODE_ENV=production node --watch ./src/server.js",
+    "seed:dev": "cross-env NODE_ENV=development node ./src/scripts/seed.dev.js"
   },
   "keywords": [],
   "author": "",
