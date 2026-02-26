@@ -9,11 +9,14 @@ export function uploadToCloudinary (buffer, folder = 'uploads') {
                 resource_type: 'image'
             },
             (error, result) => {
-                if (result) {
-                    resolve(result);
-                } else {
-                    reject(error);
+                if (error) {
+                    return reject(error);
                 }
+
+                if (!result) {
+                    return reject(new Error('No result from Cloudinary upload'));
+                }
+                resolve(result);
             }
         );
         streamifier.createReadStream(buffer).pipe(uploadStream);
