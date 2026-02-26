@@ -3,6 +3,7 @@ import Cart from '../models/Cart.js'
 import Order from '../models/Order.js'
 import Product from '../models/Product.js'
 import * as orderService from './orderService.js'
+import { releaseStock } from './productService.js'
 import { sendOrderEmail } from '../emailController/emailController.js'
 import 'dotenv/config'
 import { AppError } from '../errors/AppError.js'
@@ -56,7 +57,7 @@ export async function setPreferences ({ userId, shipping_info }) {
                 },
                 auto_return: 'all',
                 notification_url: 'https://fd18-2803-9800-94c2-8fe5-5448-82e8-efa9-c968.ngrok-free.app/api/v1/checkout/webhook',
-                external_reference: newOrder._id,
+                external_reference: JSON.stringify({ userId, orderId: newOrder._id }),
                 expires: true,
                 expiration_date_from: new Date(),
                 expiration_date_to: new Date(Date.now() + 30 * 60 * 1000) // Expira en 30 minutos
@@ -87,7 +88,8 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     console.log('PAYMENT DATA: ', status, transaction_amount, id, externalReference)
 
-    const order = await Order.findById(externalReference)
+    const { userId, orderId } = JSON.parse(externalReference)
+    const order = await orderService.getOrderById(orderId)
     if (!order) {
         console.error('Order not found for ID:', externalReference)
         throw new NotFoundError('Order not found.');
@@ -110,16 +112,22 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     if (order.status === newStatusOrder) return order;
 
-    const updatedOrder = await Order.findOneAndUpdate({
-        _id: externalReference,
-        status: 'pending_payment', // Only update if currently pending payment
-        payment_id: { $ne: id.toString() }
-    }, {
-        $set: {
-            status: newStatusOrder,
-            payment_id: id.toString()
-        }
-    },{ new: true })
+    // const updatedOrder = await Order.findOneAndUpdate({
+    //     _id: externalReference,
+    //     status: 'pending_payment', // Only update if currently pending payment
+    //     payment_id: { $ne: id.toString() }
+    // }, {
+    //     $set: {
+    //         status: newStatusOrder,
+    //         payment_id: id.toString()
+    //     }
+    // },{ new: true })
+
+    const updatedOrder = await orderService.updateOrderStatusConditional({
+        orderId: externalReference,
+        newStatus: newStatusOrder,
+        paymentId: id
+    })
     
     if (!updatedOrder) {
         // This means the order was not found or it has already been updated with this payment ID (idempotency)
@@ -129,15 +137,12 @@ export async function receiveWebhook ({ paymentInfo }) {
     if (order.status === 'pending_payment' && 
     (newStatusOrder === 'payment_failed' || newStatusOrder === 'cancelled')) {
         for (const item of order.items) {
-            await Product.findByIdAndUpdate(
-                item.productId,
-                { $inc: { stock: item.quantity } }
-            )
+            await productService.releaseStock(item.productId, item.quantity)
         }
     }
 
     if (newStatusOrder === 'paid') {
-        await Cart.findOneAndDelete({ user: updatedOrder.user });
+        await cartService.clearCartByUserId(userId)
         await sendOrderEmail(updatedOrder)
     }
     
