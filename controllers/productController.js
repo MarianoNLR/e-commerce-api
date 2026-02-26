@@ -67,48 +67,10 @@ export async function update (req, res) {
   const { files : newImages } = req
   const productsUpdate = { name, price, quantity, description }
   
-  
   //console.log(req)
   try {
-    // // Update product simple fields first before handling images
-    // await Product.findByIdAndUpdate(id, productsUpdate)
-
-    // // Get current images from product
-    // const currentImages = await Product.findById(id).select('imagesURLs -_id')
-
-    // // Determine which images to delete by filtering out the ones to keep
-    // const toDelete = []
-    // if (imagesToKeep.length === 0) {
-    //     toDelete.push(...currentImages.imagesURLs)
-    // } else {
-    //   toDelete = currentImages.imagesURLs.filter(img => !imagesToKeep.includes(img))
-    // }
-    
-
-    // //Delete images that are not in imagesToKeep from uploads folder and from product document
-    // for (const image of toDelete) { 
-    //   try {
-    //     const imgPath = path.join(process.cwd(), 'uploads', image)
-    //     await unlink(imgPath)
-    //   } catch (error) {
-    //     if (error.code !== 'ENOENT') {
-    //       console.error(`File ${image} not found, skipping deletion.`)
-    //     }
-    //   }
-    //   await Product.updateOne({ _id: id }, { $pull: { imagesURLs: image } })
-    // }
-
-    // // Add new images to product document
-    // const newImagesURLs = [];
-    // if (newImages && newImages.length > 0) {
-    //   for (const image of newImages) {
-    //     newImagesURLs.push(image.filename);
-    //   }
-    //   await Product.updateOne({ _id: id }, { $push: { imagesURLs: { $each: newImagesURLs } } });
-    // }
-    // const updatedProduct = await Product.findById(id)
-    // res.status(200).json({ result: updatedProduct })
-    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToKeep })
+    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToKeep: imagesToKeep.length > 0 ? JSON.parse(imagesToKeep) : [] })
+    return res.status(200).json({ result })
   } catch (error) {
     console.error('Error updating product:', error)
     return res.status(error.status || 500).json({ error: error.message || 'Internal server error.' })
@@ -163,18 +125,3 @@ export async function reactivateProduct (req, res, next) {
     next(error)
   }
 }
-
-// export async function updateProductStockPurchase (req, res) {
-//   try {
-//     const product = await Product.findById(productId)
-//     if (product) {
-//       product.quantity -= quantity
-//       await product.save()
-//       return true
-//     }
-//     return false
-//   } catch (error) {
-//     console.error('It seems there was an error with product stock:', error)
-//     return false
-//   }
-// }
