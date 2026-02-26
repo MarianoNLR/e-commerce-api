@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import path, { extname } from "path";
 import { unlink } from "fs/promises";
 import 'dotenv/config'
+import cloudinary from "../config/cloudinary.js";
+import { ca } from "zod/locales";
 
 const isValidObjectId = (id) => mongoose.isValidObjectId(id);
 
@@ -97,44 +99,73 @@ export async function update({ productId, productsUpdate, newImages, imagesToKee
         err.status = 400
         throw err
     }
-    // Update product simple fields first before handling images
-    await Product.findByIdAndUpdate(productId, productsUpdate, { new: true })
+    // // Update product simple fields first before handling images
+    // await Product.findByIdAndUpdate(productId, productsUpdate, { new: true })
+    console.log('PRODUCT UPDATE SERVICE: ', productsUpdate)
+    console.log('NEW IMAGES: ', newImages)
+    console.log('IMAGES TO KEEP: ', imagesToKeep)
 
     // Get current images from product
-    const currentImages = await Product.findById(productId).select('imagesURLs -_id')
+    const product = await Product.findById(productId)
+    if (!product) {
+        const err = new Error('Product not found')
+        err.status = 404
+        throw err
+    }
 
-     // Determine which images to delete by filtering out the ones to keep
+    const currentImages = product.images
+    console.log('CURRENT IMAGES: ', currentImages)
+
+    // Upload new images to Cloudinary and prepare array for product document
+    const uplodadedImages = []
+    for (const image of newImages) {
+        console.log(image)
+        const result = await uploadToCloudinary(image.buffer, 'products')
+        uplodadedImages.push({
+            public_id: result.public_id, 
+            secure_url: result.secure_url 
+        })
+    }
+
+    // Determine which images to delete by filtering out the ones to keep
     const imagesToDelete = []
-    if (imagesToKeep.length === 0) {
-        imagesToDelete.push(...currentImages.imagesURLs)
+    if (imagesToKeep.length === 0 && currentImages.length > 0) {
+    console.log('NO IMAGES TO KEEP, DELETING ALL CURRENT IMAGES')
+        imagesToDelete.push(...currentImages.map(img => img.public_id))
     } else {
-        imagesToDelete.push(...currentImages.imagesURLs.filter(img => !imagesToKeep.includes(img)))
+        imagesToDelete.push(...currentImages.filter(img => !imagesToKeep.includes(img.public_id)))
     }
+    console.log('IMAGES TO DELETE: ', imagesToDelete)
 
-    //Delete images that are not in imagesToKeep from uploads folder and from product document
-    for (const image of imagesToDelete) {
+    // Filter out images to delete from product document and add new uploaded images.
+    product.images = [
+        ...product.images.filter(img => imagesToKeep.includes(img.public_id)),
+        ...uplodadedImages
+    ]
+
+    Object.assign(product, productsUpdate)
+    try {
+        await product.save()
+    } catch (error) {
+        // rollback: delete newly uploaded images from Cloudinary if product save fails
+        for (const img of uplodadedImages) {
+            await cloudinary.uploader.destroy(img.public_id)
+        }
+        console.error('Error updating product images: ', error)
+        throw new Error('Failed to update product images')
+    }
+    
+
+    // Delete images that are in imagesToDelete from Cloudinary
+    for (const img of imagesToDelete) {
+        console.log('DELETING IMAGE WITH PUBLIC ID: ', img.public_id)
         try {
-            const imagePath = path.join(process.cwd(), process.env.UPLOADS_FOLDER, image)
-            await unlink(imagePath)
+            await cloudinary.uploader.destroy(img.public_id)
         } catch (error) {
-            if (error.code !== 'ENOENT') {
-                console.error(`File ${image} not found.`, error)
-            }
+            console.error(`Error deleting image ${img.public_id} from Cloudinary:`, error)
         }
-        await Product.updateOne({ _id: productId }, { $pull: { imagesURLs: image } })
     }
-
-    // Add new images to product document
-    const newImagesURLs = []
-    if (newImages && newImages.length > 0) {
-        for (const image of newImages) {
-            newImagesURLs.push(image.filename)
-        }
-        await Product.updateOne({ _id: productId }, { $push: { imagesURLs: { $each: newImagesURLs } } })
-    }
-
-    const updatedProduct = await Product.findById(productId)
-    return updatedProduct
+    return product
 }
 
 export async function deleteProduct({ productId }) {
