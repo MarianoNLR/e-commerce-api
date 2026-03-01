@@ -84,10 +84,10 @@ export async function createOrder({ userId, shippingInfo }) {
         for (const item of cartUser.items) {
             console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
             const updated = await Product.findOneAndUpdate(
-                { _id: item.product._id, stock: 
-                    { $gte: item.quantity } 
+                { _id: item.product._id, 
+                    quantity: { $gte: item.quantity } 
                 },
-                { $inc: { stock: -item.quantity } },
+                { $inc: { quantity: -item.quantity } },
                 { new: true, session }
             );
 
