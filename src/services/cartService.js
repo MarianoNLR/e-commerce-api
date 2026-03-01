@@ -73,6 +73,6 @@ export async function deleteItemFromCart(userId, productId) {
 }
 
 export async function clearCartByUserId(userId) {
-    const result = await Cart.findByIdAndDelete({ user: userId })
+    const result = await Cart.findOneAndDelete({ user: userId })
     return result
 }
