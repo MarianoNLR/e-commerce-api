@@ -83,13 +83,8 @@ export async function createOrder({ userId, shippingInfo }) {
 
         for (const item of cartUser.items) {
             console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
-            const updated = await Product.findOneAndUpdate(
-                { _id: item.product._id, 
-                    quantity: { $gte: item.quantity } 
-                },
-                { $inc: { quantity: -item.quantity } },
-                { new: true, session }
-            );
+
+            await productService.decreaseStock(item.product._id, item.quantity, session)
 
             if (!updated) {
                 throw new BadRequestError(`Insufficient stock for product ${item.product.name}`);
