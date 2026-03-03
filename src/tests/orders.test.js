@@ -1,12 +1,11 @@
 import { describe, it, beforeAll, afterAll, expect, vi } from "vitest";
 import request  from "supertest";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 import app from "../index.js";
 import Order from "../models/Order.js";
 import jwt from "jsonwebtoken";
-import { connectDB, disconnectDB } from "../mongo.js";
 import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Cart from "../models/Cart.js";
@@ -18,15 +17,18 @@ let cart;
 let token;
 
 beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await MongoMemoryReplSet.create({
+        replSet: { count: 1 }
+    });
     const uri = mongoServer.getUri();
-    await connectDB(uri);
+    await mongoose.connect(uri);
+    const uniqueEmail = `testuser+${Date.now()}@example.com`;
 
     // Create a test user, product, and cart
     user = await User.create({
         name: "testuser",
         lastName: "user",
-        email: "testuser@example.com",
+        email: uniqueEmail,
         password: "password123",
         role: "user"
     });
@@ -34,12 +36,14 @@ beforeAll(async () => {
     products.push(await Product.create({
         name: "Test Product",
         description: "A product for testing",
-        price: 100
+        price: 100,
+        quantity: 10
     }));
     products.push(await Product.create({
         name: "Another Test Product",
         description: "Another product for testing",
-        price: 150
+        price: 150,
+        quantity: 5
     }));
     console.log('PRODUCTS CREATED IN BEFOREALL: ', products)
     cart = await Cart.create({
@@ -55,7 +59,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-    await disconnectDB();
+    await mongoose.disconnect();
     await mongoServer.stop();
 });
 
@@ -66,7 +70,7 @@ function generateToken(payload) {
 describe("Orders API Integration Tests", () => {
     it("should allow user to read his own orders", async () => {
         const res = await request(app)
-            .get('/orders/')
+            .get('/api/v1/orders')
             .set("Authorization", `Bearer ${token}`)
         
         expect(res.status).toBe(200);
@@ -75,7 +79,7 @@ describe("Orders API Integration Tests", () => {
     it("should allow user to create an order", async () => {
 
         const res = await request(app)
-            .post('/orders')
+            .post('/api/v1/orders')
             .set("authorization", `Bearer ${token}`)
             .send({
                 shipping_info: {
@@ -98,8 +102,10 @@ describe("Orders API Integration Tests", () => {
         const orderInDb = await Order.findById(res.body.newOrder.id);
         expect(orderInDb).not.toBeNull();
         expect(orderInDb.user.toString()).toBe(user._id.toString());
+        expect(orderInDb.status).toBe('pending_payment');
 
         const cartInDb = await Cart.findOne({ user: user._id });
-        expect(cartInDb).toBeNull();
+        expect(cartInDb).not.toBeNull();
+        expect(cartInDb.items.length).toBe(2);
     })
 });
