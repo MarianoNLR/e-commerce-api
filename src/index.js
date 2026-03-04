@@ -23,7 +23,7 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 // TODO: Handle CORS properly with environment variables and allowed origins
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://e-commerce-react-live-lgtvwr23d-marianonlrs-projects.vercel.app'],
+  origin: ['http://localhost:5173', 'https://e-commerce-react-live-lgtvwr23d-marianonlrs-projects.vercel.app', 'https://e-commerce-react-live.vercel.app'],
   credentials: true
 }))
 
