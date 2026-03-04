@@ -15,7 +15,7 @@ export async function login (req, res, next) {
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none',
       maxAge: 7*24*60*60*1000
     })
     return res.status(200).json(accessToken)
@@ -88,7 +88,7 @@ export async function refreshToken (req, res, next) {
     }
 
     // Generate new tokens
-    const newAccessToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_SECRET, { expiresIn: '5s' })
+    const newAccessToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_SECRET, { expiresIn: '15m' })
     const newRefreshToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
     const hashedNewRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex')
 
