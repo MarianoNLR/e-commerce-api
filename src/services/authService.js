@@ -20,7 +20,7 @@ export async function login ({ email, password, userAgent, ipAddress }) {
     if (!passwordMatch) {
         throw new BadRequestError('Email or password incorrect.')
     }
-    const accessToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '5s' })
+    const accessToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '15m' })
 
     const refreshToken = jwt.sign({ userId: user._id}, JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
     const refrehTokenHashed = crypto.createHash('sha256').update(refreshToken).digest('hex')
