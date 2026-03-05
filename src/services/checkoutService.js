@@ -112,39 +112,7 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     if (order.status === newStatusOrder) return order;
 
-    // const updatedOrder = await Order.findOneAndUpdate({
-    //     _id: externalReference,
-    //     status: 'pending_payment', // Only update if currently pending payment
-    //     payment_id: { $ne: id.toString() }
-    // }, {
-    //     $set: {
-    //         status: newStatusOrder,
-    //         payment_id: id.toString()
-    //     }
-    // },{ new: true })
-
-    const updatedOrder = await orderService.updateOrderStatusConditional({
-        orderId: externalReference,
-        newStatus: newStatusOrder,
-        paymentId: id
-    })
-    
-    if (!updatedOrder) {
-        // This means the order was not found or it has already been updated with this payment ID (idempotency)
-        return
-    }
-
-    if (order.status === 'pending_payment' && 
-    (newStatusOrder === 'payment_failed' || newStatusOrder === 'cancelled')) {
-        for (const item of order.items) {
-            await productService.releaseStock(item.productId, item.quantity)
-        }
-    }
-
-    if (newStatusOrder === 'paid') {
-        await cartService.clearCartByUserId(userId)
-        await sendOrderEmail(updatedOrder)
-    }
+    const updatedOrder = await orderService.processPaymentStatusChange({ order, newStatus: newStatusOrder, paymentId: id, userId })
     
     return updatedOrder
 }
