@@ -51,12 +51,12 @@ export async function setPreferences ({ userId, shipping_info }) {
             body: {
                 items,
                 back_urls: {
-                success: 'https://google.com',
-                failure: 'https://google.com',
-                pending: 'https://google.com'
+                success: 'https://e-commerce-react-live.vercel.app/checkout/success',
+                failure: 'https://e-commerce-react-live.vercel.app/checkout/failure',
+                pending: 'https://e-commerce-react-live.vercel.app/'
                 },
                 auto_return: 'all',
-                notification_url: 'https://fd18-2803-9800-94c2-8fe5-5448-82e8-efa9-c968.ngrok-free.app/api/v1/checkout/webhook',
+                notification_url: 'https://e-commerce-api-gpfg.onrender.com/api/v1/checkout/webhook',
                 external_reference: JSON.stringify({ userId, orderId: newOrder._id }),
                 expires: true,
                 expiration_date_from: new Date(),
