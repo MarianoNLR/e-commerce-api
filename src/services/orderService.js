@@ -1,16 +1,20 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
+import Product from '../models/Product.js';
 import * as productService from './productService.js';
-import { getCartByUserId } from './cartService.js';
+import { clearCartByUserId } from './cartService.js';
 import { NotFoundError } from '../errors/NotFoundError.js';
 import { BadRequestError } from '../errors/BadRequestError.js';
+import { AppError } from '../errors/AppError.js';
 import mongoose from 'mongoose';
+import { sendOrderEmail } from '../emailController/emailController.js';
+import { OrderStateMachine } from '../lib/OrderStateMachine.js';
 
 export async function getOrders({ page = 0, limit = 5 }) {
     const skip = page * limit;
     const orders = await Order.find()
         .populate('user', '-password')
-        .populate('products.product')
+        .populate('items')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
@@ -23,10 +27,10 @@ export async function getOrders({ page = 0, limit = 5 }) {
 export async function getOrderById(orderId) {
     const order = await Order.findById(orderId)
         .populate('user', '-password')
-        .populate('products.product');
+        .populate('items');
     
     if (order) {
-        return { order };
+        return order ;
     } else {
         throw new NotFoundError('Order not found.');
     }
@@ -84,7 +88,7 @@ export async function createOrder({ userId, shippingInfo }) {
         for (const item of cartUser.items) {
             console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
 
-            await productService.decreaseStock(item.product._id, item.quantity, session)
+            const updated = await productService.decreaseStock(item.product._id, item.quantity, session)
 
             if (!updated) {
                 throw new BadRequestError(`Insufficient stock for product ${item.product.name}`);
@@ -121,4 +125,60 @@ export async function createOrder({ userId, shippingInfo }) {
     } finally {
         session.endSession();
     }
+}
+
+// This function is used to ensure that only one status update happens for a given payment ID.
+export async function updateOrderStatusConditional({ orderId, newStatus, currentStatus, paymentId }) {
+    //TODO: handle refund case.
+    const updatedOrder = await Order.findOneAndUpdate(
+        { 
+            _id: orderId,
+            status: currentStatus,
+            payment_id: { $ne: paymentId.toString() }
+        },
+        { $set: { 
+            status: newStatus,
+            payment_id: paymentId.toString()
+            } 
+        },
+        { new: true }
+    );
+
+    return updatedOrder;
+}
+
+// This function is used to process payment status changes from MercadoPago, 
+// ensuring valid state transitions and handling side effects like stock release and email notifications.
+export async function processPaymentStatusChange({ order, newStatus, paymentId, userId }) {
+    const stateMachine = new OrderStateMachine(order)
+
+    // Validate state transition
+    if (!stateMachine.canTransitionTo(newStatus)) {
+        console.error(`Invalid state transition from ${order.status} to ${newStatus} for order ID:`, order._id)
+        throw new AppError(`Invalid state transition from ${order.status} to ${newStatus}.`, 400);
+    }
+    
+    const updatedOrder = await updateOrderStatusConditional({ 
+        orderId: order._id, 
+        newStatus, 
+        currentStatus: order.status, 
+        paymentId 
+    })
+    if (!updatedOrder) {
+        // This means the order was not found or it has already been updated with this payment ID (idempotency)
+        console.warn(`Order with ID ${order._id} was already updated with payment ID ${paymentId}. Skipping status update.`)
+        return
+    }
+
+    if (newStatus === 'payment_failed' || newStatus === 'cancelled') {
+        for (const item of order.items) {
+            await productService.releaseStock(item.productId, item.quantity)
+        }
+    }
+
+    if (newStatus === 'paid') {
+        await clearCartByUserId(userId)
+        await sendOrderEmail(updatedOrder)
+    }
+    return updatedOrder;
 }
