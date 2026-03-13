@@ -27,93 +27,21 @@ export async function login (req, res, next) {
 
 export async function refreshToken (req, res, next) {
   try {
-    const { refresh_token } = req.cookies
-
-    if (!refresh_token) {
-      throw new UnauthorizedError('No refresh token provided.')
-    }
-    let payload
-    try {
-      payload = jwt.verify(refresh_token, process.env.JWT_REFRESH_TOKEN_SECRET)
-    } catch (error) {
-      throw new UnauthorizedError('Invalid or expired refresh token.', 'INVALID_REFRESH_TOKEN')
-    }
+    const { refreshToken: currentRefreshToken } = req.cookies
+    const { accessToken, refreshToken } = await authService.refreshToken(currentRefreshToken, req.get('User-Agent'), req.ip)
     
-      
-    const hashRefreshToken = crypto.createHash('sha256').update(refresh_token).digest('hex')
-
-    const consumedSession = await Session.findOneAndUpdate(
-      {
-        user: payload.userId,
-        refreshToken: hashRefreshToken,
-        revokedAt: null,
-        expiresAt: { $gt: new Date() }
-      },
-      { revokedAt: new Date() },
-
-      { new: true }
-    )
-
-    if (!consumedSession) {
-      // Check if the token was already revoked (possible reuse)
-      const existingSession = await Session.findOne({
-        user: payload.userId,
-        refreshToken: hashRefreshToken
-      })
-
-      if (!existingSession) {
-        throw new UnauthorizedError('Refresh token not found. Please log in again.', 'REFRESH_TOKEN_NOT_FOUND')
-      }
-
-      if (existingSession.expiresAt < new Date()) {
-        throw new UnauthorizedError('Refresh token expired. Please log in again.', 'REFRESH_TOKEN_EXPIRED')
-      }
-
-      if (existingSession.revokedAt) {
-        const diff = Date.now() - existingSession.revokedAt.getTime() 
-        // Race condition: If the token was revoked very recently, it might be the same request trying to refresh again before the first one finishes.
-        if (diff < 2000) {
-          throw new UnauthorizedError('Token already rotated.', 'REFRESH_TOKEN_ALREADY_ROTATED')
-        } else {
-          // Revoke all sessions for the user because of possible token reuse
-          await Session.updateMany(
-            { user: payload.userId },
-            { revokedAt: new Date() }
-          )
-          throw new UnauthorizedError('Refresh token reuse detected. All sessions revoked.', 'REFRESH_TOKEN_REUSE')
-        }
-      }
-
-      throw new UnauthorizedError('Refresh token already used.', 'REFRESH_TOKEN_ALREADY_USED')
-    }
-
-    // Generate new tokens
-    const newAccessToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_SECRET, { expiresIn: '15m' })
-    const newRefreshToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
-    const hashedNewRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex')
-
-    // Create new session
-    await Session.create({
-      user: payload.userId,
-      refreshToken: hashedNewRefreshToken,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
-      expiresAt: new Date(Date.now() + 7*24*60*60*1000)
-    })
-
-    // Set new refresh token in cookie
-    res.cookie('refresh_token', newRefreshToken, {
+    res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7*24*60*60*1000
     })
 
-    res.json({ accessToken: newAccessToken })
+    res.json({ accessToken })
+
   } catch (error) {
     next(error)
   }
-  
 }
 
 export async function completeGoogleSignup (req, res, next) {
@@ -164,7 +92,6 @@ export async function register (req, res, next) {
 }
 
 export async function logout (req, res, next) {
-  
-  await Session.deleteOne({ refreshToken: req.cookies.refresh_token })
+  await authService.logout(req.cookies.refresh_token)
   res.clearCookie('refresh_token').json({ message: 'Logout successfully.' })
 }
