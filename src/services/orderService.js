@@ -10,24 +10,28 @@ import mongoose from 'mongoose';
 import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
 
-export async function getOrders({ page = 0, limit = 5 }) {
-    const skip = page * limit;
-    const orders = await Order.find()
+export async function getOrders({ filter, page = 1, limit = 5 }) {
+    const skip = (page - 1) * limit;
+    console.log('FILTER IN SERVICE GET ORDERS: ', filter)
+    const orders = await Order.find(filter)
         .populate('user', '-password')
-        .populate('items')
+        //.populate('items')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
-    const totalOrders = await Order.countDocuments();
+    const totalOrders = await Order.countDocuments(filter);
     const hasMore = skip + orders.length < totalOrders;
 
     return { orders, hasMore, currentPage: page, totalOrders };
 }
 
-export async function getOrderById(orderId) {
-    const order = await Order.findById(orderId)
-        .populate('user', '-password')
-        .populate('items');
+export async function getOrderById(orderId, filter) {
+    const order = await Order.findById({
+        _id: orderId,
+        ...filter
+    })
+    .populate('user', '-password')
+    .populate('items');
     
     if (order) {
         return order ;
@@ -36,30 +40,30 @@ export async function getOrderById(orderId) {
     }
 }
 
-export async function updateOrderStatus({ orderId, status }) {
-    const order = await Order.findByIdAndUpdate(orderId, { status }, { new: true });
+export async function updateOrderStatus({ orderId, status, filter }) {
+    const order = await Order.findOneAndUpdate({_id: orderId, ...filter}, { status }, { new: true });
     if (!order) {
         throw new NotFoundError('Order not found.'); 
     }
     return { order };
 }
 
-export async function payWithMercadoPago({ orderId, status, paymentId }) {
-    const order = await Order.findByIdAndUpdate(orderId, { status, payment_id: paymentId }, { new: true });
-    if (!order) {
-        throw new NotFoundError('Order not found.');  
-    }
+// export async function payWithMercadoPago({ orderId, status, paymentId }) {
+//     const order = await Order.findByIdAndUpdate(orderId, { status, payment_id: paymentId }, { new: true });
+//     if (!order) {
+//         throw new NotFoundError('Order not found.');  
+//     }
 
-    // TODO: transactional stock update, if one fails, rollback order status update
-    for (let i = 0; i < order.items.length; i++) {
-        console.log(order.items[i].productId, order.items[i].quantity)
-        if (!await productService.decreaseStock(order.items[i].productId, order.items[i].quantity)) {
-            console.error('Error updating product stock.')
-            return
-        }
-    }
-    return { order };
-}
+//     // TODO: transactional stock update, if one fails, rollback order status update
+//     for (let i = 0; i < order.items.length; i++) {
+//         console.log(order.items[i].productId, order.items[i].quantity)
+//         if (!await productService.decreaseStock(order.items[i].productId, order.items[i].quantity)) {
+//             console.error('Error updating product stock.')
+//             return
+//         }
+//     }
+//     return { order };
+// }
 
 export async function updateOrder(orderId, updateData) {
     const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
