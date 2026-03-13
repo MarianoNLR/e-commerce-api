@@ -26,7 +26,9 @@ const OrderItemSnapshotSchema = new Schema({
 const orderSchema = new Schema({
   user: {
     type: Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: true,
+    index: true
   },
   items: [OrderItemSnapshotSchema],
   total: {
