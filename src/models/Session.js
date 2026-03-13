@@ -19,6 +19,11 @@ const sessionSchema = new Schema({
         type: Date, 
         default: null 
     },
+    revokedReason: {
+        type: String,
+        enum: ['reuse_detected', 'refresh'],
+        default: null
+    },
     ipAddress: { 
         type: String 
     },
@@ -30,6 +35,9 @@ const sessionSchema = new Schema({
 
 // TTL index to automatically delete expired sessions
 sessionSchema.index({ "expiresAt": 1 }, { expireAfterSeconds: 0 });
+
+// TTL index to automatically delete revoked sessions after 24 hours
+sessionSchema.index({ revokedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24, sparse: true })
 
 const Session = model('Session', sessionSchema);
 
