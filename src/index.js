@@ -13,6 +13,7 @@ import orderRouter from './routes/orderRoutes.js'
 import './config/passport.js'
 import authRouter from './routes/authRoutes.js'
 import { errorHandler } from './middlewares/errorHandler.js'
+import v1Router from './routes/index.js'
 
 const app = express()
 
@@ -34,13 +35,7 @@ const imageDirectory = join(__dirname, 'uploads')
 
 app.use('/uploads', express.static(imageDirectory))
 
-app.use('/api/v1/auth', authRouter)
-app.use('/api/v1/users', userRouter)
-app.use('/api/v1/products', productRouter)
-app.use('/api/v1/cart', cartRouter)
-app.use('/api/v1/category', categoryRouter)
-app.use('/api/v1/checkout', checkoutRouter)
-app.use('/api/v1/orders', orderRouter)
+app.use('/api/v1', v1Router)
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello World!!</h1>')
