@@ -110,4 +110,90 @@ export async function getMe ({ userId }) {
         throw new NotFoundError('User not found.')
     }
 }
-  
+
+export async function refreshToken (refreshToken, userAgent, ipAddress) {
+    if (!refreshToken) {
+      throw new UnauthorizedError('No refresh token provided.')
+    }
+
+    let payload
+    try {
+      payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN_SECRET)
+    } catch (error) {
+      throw new UnauthorizedError('Invalid or expired refresh token.', 'INVALID_REFRESH_TOKEN')
+    }
+    
+      
+    const hashRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex')
+
+    // verify and consume the refresh token atomically to prevent reuse
+    const consumedSession = await Session.findOneAndUpdate(
+      {
+        user: payload.userId,
+        refreshToken: hashRefreshToken,
+        revokedAt: null,
+        expiresAt: { $gt: new Date() }
+      },
+      { revokedAt: new Date(),
+        revokedReason: 'refresh'
+      },
+
+      { new: false }
+    )
+
+    // If no session was found, it means the token was already used or revoked
+    if (!consumedSession) {
+      // Check if the token was already revoked (possible reuse)
+      const existingSession = await Session.findOne({ refreshToken: hashRefreshToken })
+
+      // Session not found at all, treat as normal invalid token
+      if (!existingSession) {
+        throw new UnauthorizedError('Refresh token not found. Please log in again.', 'REFRESH_TOKEN_NOT_FOUND')
+      }
+
+      // Token expired, treat as normal expired token
+      if (existingSession.expiresAt < new Date()) {
+        throw new UnauthorizedError('Refresh token expired. Please log in again.', 'REFRESH_TOKEN_EXPIRED')
+      }
+
+        // Token was revoked
+        if (existingSession.revokedAt) {
+            if (existingSession.revokedReason === 'reuse_detected') {
+                    throw new UnauthorizedError('Refresh token already revoked due to reuse detection.', 'REFRESH_TOKEN_REUSE')
+            }
+
+            if (existingSession.revokedReason === 'refresh') {
+                // Revoke all sessions for the user because of possible token reuse
+                // Could use familyId in Session model to only revoke related sessions if implementing token rotation with family IDs
+                // and determine if reuse is actually happening or just a race condition with multiple refresh requests
+                await Session.updateMany(
+                { user: payload.userId },
+                { revokedAt: new Date(), revokedReason: 'reuse_detected' }
+                )
+                throw new UnauthorizedError('Refresh token already used.', 'REFRESH_TOKEN_ALREADY_ROTATED')        
+            }  
+            throw new UnauthorizedError('Invalid refresh token. Please log in again.', 'INVALID_REFRESH_TOKEN')
+        }
+        throw new UnauthorizedError('Unable to process refresh token.', 'REFRESH_TOKEN_INVALID')
+      }
+
+    // Generate new tokens
+    const newAccessToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_SECRET, { expiresIn: '15m' })
+    const newRefreshToken = jwt.sign({ userId: payload.userId, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
+    const hashedNewRefreshToken = crypto.createHash('sha256').update(newRefreshToken).digest('hex')
+
+    // Create new session
+    await Session.create({
+      user: payload.userId,
+      refreshToken: hashedNewRefreshToken,
+      ipAddress,
+      userAgent,
+      expiresAt: new Date(Date.now() + 7*24*60*60*1000)
+    })
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken }
+}
+
+export async function logout( refreshToken ) {
+    await Session.deleteOne({ refreshToken })
+}
