@@ -6,12 +6,14 @@ import { getOrders, getOrderById, updateOrderStatus, updateOrder, createOrder } 
 
 const orderRouter = Router()
 
-orderRouter.get('/', authUser, defineAbilityMiddleware, checkAbility('read', 'Order'), getOrders)
-orderRouter.get('/:orderId', authUser, defineAbilityMiddleware, checkAbility('read', 'Order'), getOrderById)
+orderRouter.use(authUser, defineAbilityMiddleware)
 
-orderRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Order'), createOrder)
+orderRouter.get('/', checkAbility('read', 'Order'), getOrders)
+orderRouter.get('/:orderId', checkAbility('read', 'Order'), getOrderById)
 
-orderRouter.put('/:orderId/status', authUser, defineAbilityMiddleware, checkAbility('update', 'Order'), updateOrderStatus)
-orderRouter.put('/:orderId', authUser, defineAbilityMiddleware, checkAbility('update', 'Order'), updateOrder)
+orderRouter.post('/', checkAbility('create', 'Order'), createOrder)
+
+orderRouter.put('/:orderId/status', checkAbility('update', 'Order'), updateOrderStatus)
+orderRouter.put('/:orderId', checkAbility('update', 'Order'), updateOrder)
 
 export default orderRouter
