@@ -1,12 +1,16 @@
 import Order from '../models/Order.js'
 import Cart from '../models/Cart.js'
 import * as orderService from '../services/orderService.js'
+import { accessibleBy } from '@casl/mongoose'
 
 export async function getOrders (req, res, next) {
   try {
+    const filter = accessibleBy(req.ability, 'read').ofType('Order')
+    console.log('FILTER IN GET ORDERS: ', filter)
     const result = await orderService.getOrders({
-      page: parseInt(req.query.page) || 0,
-      limit: 5
+      filter,
+      page: Math.max(parseInt(req.query.page) || 1, 1),
+      limit: Math.min(parseInt(req.query.limit) || 5, 50)
     })
     return res.status(200).json(result)
   }
@@ -19,8 +23,9 @@ export async function getOrders (req, res, next) {
 
 export async function getOrderById (req, res, next) {
   const { orderId } = req.params
+  const filter = accessibleBy(req.ability, 'read').ofType('Order')
   try {
-    const order = await orderService.getOrderById(orderId)
+    const order = await orderService.getOrderById(orderId, filter)
     if (!order) {
       return res.status(404).json({ error: 'Order not found.' })
     }
@@ -35,7 +40,8 @@ export async function updateOrderStatus (req, res, next) {
   const { orderId } = req.params
   const { status } = req.body
   try {
-    const result = await orderService.updateOrderStatus({ orderId, status })
+    const filter = accessibleBy(req.ability, 'update').ofType('Order')
+    const result = await orderService.updateOrderStatus({ orderId, status, filter })
     
     return res.status(200).json({ order: result })
   } catch (error) {
