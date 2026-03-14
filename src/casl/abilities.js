@@ -22,6 +22,8 @@ export function defineAbilitiesFor (user) {
     can('create', 'Order')
     can('update', 'Order', { user: user.id, status: 'pending_payment' }) // users can update their own orders
     can('read', 'Order', { user: user._id }) // users can read their own orders
+
+    can ('manage', 'Cart', { user: user._id }) // users can manage their own cart
   }
 
   return build()
