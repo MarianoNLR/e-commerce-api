@@ -6,6 +6,7 @@ import User from '../models/User.js'
 import { verifyToken } from '../utils/verifyToken.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
+import { UnauthorizedError } from '../errors/UnauthorizedError.js'
 import Session from '../models/Session.js'
 
 const { JWT_SECRET, JWT_REFRESH_TOKEN_SECRET } = process.env
@@ -113,7 +114,8 @@ export async function getMe ({ userId }) {
 
 export async function refreshToken (refreshToken, userAgent, ipAddress) {
     if (!refreshToken) {
-      throw new UnauthorizedError('No refresh token provided.')
+        console.log('No refresh token provided.')
+      throw new UnauthorizedError('No refresh token provided.', 'REFRESH_TOKEN_NOT_FOUND')
     }
 
     let payload
@@ -158,21 +160,28 @@ export async function refreshToken (refreshToken, userAgent, ipAddress) {
 
         // Token was revoked
         if (existingSession.revokedAt) {
-            if (existingSession.revokedReason === 'reuse_detected') {
-                    throw new UnauthorizedError('Refresh token already revoked due to reuse detection.', 'REFRESH_TOKEN_REUSE')
-            }
-
             if (existingSession.revokedReason === 'refresh') {
-                // Revoke all sessions for the user because of possible token reuse
-                // Could use familyId in Session model to only revoke related sessions if implementing token rotation with family IDs
-                // and determine if reuse is actually happening or just a race condition with multiple refresh requests
+                const diff = Date.now() - existingSession.revokedAt.getTime()
+
+                if (diff < 5000) {
+                    // Possible race condition where token was rotated very recently.
+                    // Client should retry with the new token provided.
+                    // This also means a stolen token could be reused within 5 seconds grace period,
+                    // but this is a trade-off to prevent legitimate users from getting locked out due to token rotation.
+                    throw new UnauthorizedError('Refresh token already refreshed. Please use the new token.', 'REFRESH_TOKEN_ALREADY_ROTATED')
+                }
+                
+                // Token was rotated more than 5 seconds ago, treat as reuse.
                 await Session.updateMany(
-                { user: payload.userId },
-                { revokedAt: new Date(), revokedReason: 'reuse_detected' }
+                { user: payload.userId, revokedAt: null },
+                { 
+                    revokedAt: new Date(), 
+                    revokedReason: 'reuse_detected' 
+                }
                 )
-                throw new UnauthorizedError('Refresh token already used.', 'REFRESH_TOKEN_ALREADY_ROTATED')        
+                throw new UnauthorizedError('Token reuse detected. All sessions revoked.', 'REFRESH_TOKEN_REUSE')
             }  
-            throw new UnauthorizedError('Invalid refresh token. Please log in again.', 'INVALID_REFRESH_TOKEN')
+            throw new UnauthorizedError('Refresh token revoked. Please log in again.', 'REFRESH_TOKEN_REVOKED')
         }
         throw new UnauthorizedError('Unable to process refresh token.', 'REFRESH_TOKEN_INVALID')
       }
@@ -195,5 +204,6 @@ export async function refreshToken (refreshToken, userAgent, ipAddress) {
 }
 
 export async function logout( refreshToken ) {
-    await Session.deleteOne({ refreshToken })
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
+    await Session.deleteOne({ refreshToken: tokenHash })
 }
