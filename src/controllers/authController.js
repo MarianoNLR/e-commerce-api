@@ -12,7 +12,7 @@ export async function login (req, res, next) {
   try {
     const {accessToken, refreshToken} = await authService.login({ email, password, userAgent: req.get('User-Agent'), ipAddress: req.ip })
 
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
@@ -30,7 +30,7 @@ export async function refreshToken (req, res, next) {
     const { refreshToken: currentRefreshToken } = req.cookies
     const { accessToken, refreshToken } = await authService.refreshToken(currentRefreshToken, req.get('User-Agent'), req.ip)
     
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -92,6 +92,6 @@ export async function register (req, res, next) {
 }
 
 export async function logout (req, res, next) {
-  await authService.logout(req.cookies.refresh_token)
-  res.clearCookie('refresh_token').json({ message: 'Logout successfully.' })
+  await authService.logout(req.cookies.refreshToken)
+  res.clearCookie('refreshToken').json({ message: 'Logout successfully.' })
 }
