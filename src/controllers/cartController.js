@@ -2,6 +2,7 @@ import Cart from '../models/Cart.js'
 import 'dotenv/config'
 import Product from '../models/Product.js'
 import * as cartService from '../services/cartService.js'
+import { subject } from '@casl/ability'
 
 export async function add (req, res, next) {
   // Create cart if it's first item
@@ -19,8 +20,7 @@ export async function add (req, res, next) {
 }
 
 export async function getCart (req, res, next) {
-  // const user = req.session.user
-  const { userId } = req.params
+  const userId  = req.userId
   try {
     const cart = await cartService.getCartByUserId(userId)
     return res.status(200).json( cart )
