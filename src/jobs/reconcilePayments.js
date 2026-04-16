@@ -1,7 +1,7 @@
 import Order from '../models/Order.js'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
-import * as orderService from './orderService.js'
-import { MP_STATUS_MAP } from './checkoutService.js'
+import * as orderService from '../services/orderService.js'
+import { MP_STATUS_MAP } from '../services/checkoutService.js'
 import 'dotenv/config'
 
 const { MP_ACCESS_TOKEN } = process.env
@@ -11,6 +11,16 @@ const client = new MercadoPagoConfig({
 })
 
 const payment = new Payment(client)
+
+export function startReconciliationPayments() {
+    setInterval(async () => {
+        try {
+            await reconcilePayments()
+        } catch (error) {
+            console.error('Error reconciling payments:', error)
+        }
+    }, 5 * 60 * 1000)
+}
 
 async function reconcilePayments () {
     // Get all orders with pending payment status
