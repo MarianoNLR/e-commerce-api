@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import multer from 'multer'
 import { validate } from '../middlewares/validate.js'
 import { getBySearchSchema, getByIdSchema, addProductSchema, updateProductSchema, updateProductStockSchema, deleteProductSchema } from '../validators/productSchema.js'
+import { BadRequestError } from '../errors/BadRequestError.js'
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url))
 const MIMETYPES = ['image/jpeg', 'image/png']
@@ -36,7 +37,7 @@ const productRouter = express.Router()
 productRouter.post('/', (req, res, next) => {
   multerUpload.array('images')(req, res, (err) => {
     if (err) {
-      res.status(400).json({ error: err.message })
+      return next(new BadRequestError(err.message))
     }
     validate(addProductSchema)
     add(req, res)
@@ -51,7 +52,7 @@ productRouter.get('/', productController.getAll)
 productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), validate(updateProductSchema), (req, res, next) => {
   multerUpload.array('newImages')(req, res, (err) => {
     if (err) {
-      res.status(400).json({ error: err.message })
+      return next(new BadRequestError(err.message))
     }
     productController.update(req, res)
   })
