@@ -5,6 +5,7 @@ import 'dotenv/config'
 import crypto from 'crypto'
 import Session from '../models/Session.js'
 import { verifyRefreshToken } from '../utils/verifyToken.js'
+import { sendSuccess } from '../utils/apiResponse.js'
 
 export async function login (req, res, next) {
   const { email, password } = req.body
@@ -18,7 +19,7 @@ export async function login (req, res, next) {
       sameSite: 'none',
       maxAge: 7*24*60*60*1000
     })
-    return res.status(200).json(accessToken)
+    return sendSuccess(res, accessToken, 200)
   }
   catch (error) {
     next(error)
@@ -37,7 +38,7 @@ export async function refreshToken (req, res, next) {
       maxAge: 7*24*60*60*1000
     })
 
-    res.json({ accessToken })
+    return sendSuccess(res, { accessToken }, 200)
 
   } catch (error) {
     next(error)
@@ -49,7 +50,7 @@ export async function completeGoogleSignup (req, res, next) {
   try {
     const { token, name, lastName } = req.body
     const result = await authService.completeGoogleSignup({ token, name, lastName })
-    return res.status(201).json(result)
+    return sendSuccess(res, result, 201)
   } catch (error) {
     next(error)
   }
@@ -84,7 +85,7 @@ export async function register (req, res, next) {
 
   try {
     const newUserToken = await authService.register({ name, lastName, email, password, confirmPassword })
-    return res.status(201).json(newUserToken)
+    return sendSuccess(res, newUserToken, 201)
     
   } catch (error) {
     return next(error)
@@ -93,5 +94,6 @@ export async function register (req, res, next) {
 
 export async function logout (req, res, next) {
   await authService.logout(req.cookies.refreshToken)
-  res.clearCookie('refreshToken').json({ message: 'Logout successfully.' })
+  res.clearCookie('refreshToken')
+  return sendSuccess(res, { message: 'Logout successfully.' }, 200)
 }

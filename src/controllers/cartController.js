@@ -3,6 +3,7 @@ import 'dotenv/config'
 import Product from '../models/Product.js'
 import * as cartService from '../services/cartService.js'
 import { subject } from '@casl/ability'
+import { sendSuccess } from '../utils/apiResponse.js'
 
 export async function add (req, res, next) {
   // Create cart if it's first item
@@ -12,7 +13,7 @@ export async function add (req, res, next) {
   
   try {
     const result = await cartService.addItemToCart(userId, productId, quantity)
-    return res.status(200).json({ cart: result })
+    return sendSuccess(res, { cart: result }, 200)
   } catch (error) {
     console.error(error)
     next(error)
@@ -23,7 +24,7 @@ export async function getCart (req, res, next) {
   const userId  = req.userId
   try {
     const cart = await cartService.getCartByUserId(userId)
-    return res.status(200).json( cart )
+    return sendSuccess(res, cart, 200)
   } catch (error) {
     console.error(error)
     next(error)
@@ -37,7 +38,7 @@ export async function deleteItem (req, res, next) {
     const result = await cartService.deleteItemFromCart(userId, productId)
     //const [cart] = await Cart.find({ user: userId }).populate('items.product')
     
-    return res.status(200).json({ cart: result })
+    return sendSuccess(res, { cart: result }, 200)
   } catch (error) {
     console.error(error)
     next(error)
