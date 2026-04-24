@@ -2,6 +2,8 @@ import express from 'express'
 import { getAllUsers, getMe, getUserById } from '../controllers/userController.js'
 import { authUser } from '../middlewares/authUser.js'
 import User from '../models/User.js'
+import { sendSuccess } from '../utils/apiResponse.js'
+import { BadRequestError } from '../errors/BadRequestError.js'
 
 const userRouter = express.Router()
 
@@ -20,18 +22,22 @@ const userRouter = express.Router()
 // userRouter.post('/logout', logout)
 userRouter.get('/me', authUser, getMe)
 userRouter.get('/:id', getUserById)
-userRouter.post('/email-check', async (req, res) => {
-    console.log(req.body)
-    const { email } = req.body
-    if (!email) {
-        return res.status(400).json({ message: 'Email is required' })
+userRouter.post('/email-check', async (req, res, next) => {
+    try {
+        console.log(req.body)
+        const { email } = req.body
+        if (!email) {
+            return next(new BadRequestError('Email is required'))
+        }
+        // Check if the email exists in the database
+        const user = await User.findOne({ email })
+        if (user) {
+            return sendSuccess(res, { email: user.email }, 200)
+        }
+        return sendSuccess(res, { email: null }, 200)
+    } catch (error) {
+        return next(error)
     }
-    // Check if the email exists in the database
-    const user = await User.findOne({ email })
-    if (user) {
-        return res.status(200).json({ email: user.email })
-    }
-    return res.status(200).json({ email: null })
 })
 userRouter.get('/', getAllUsers)
 
