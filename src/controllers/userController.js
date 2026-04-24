@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt'
 import 'dotenv/config'
 import * as authService from '../services/authService.js'
 import { UnauthorizedError } from '../errors/UnauthorizedError.js'
+import { sendSuccess } from '../utils/apiResponse.js'
 
 const { JWT_SECRET } = process.env
 
@@ -76,7 +77,7 @@ export async function getUserById (req, res, next) {
   try {
     const { user } = await authService.getUserById({ userId })
     if (user) {
-      return res.status(200).json({ user })
+      return sendSuccess(res, { user }, 200)
     }
 
   } catch (error) {
@@ -89,7 +90,7 @@ export async function getMe (req, res, next) {
   try {
     const { user } = await authService.getMe({ userId })
     if (user) {
-      return res.status(200).json({ user })
+      return sendSuccess(res, { user }, 200)
     }
   } catch (error) {
     next(error)
@@ -101,7 +102,7 @@ export async function getAllUsers (req, res, next) {
   try {
     const { users } = await authService.getAllUsers()
 
-    return res.status(200).json({ users })
+    return sendSuccess(res, { users }, 200)
   } catch (error) {
     next(error)
   }
