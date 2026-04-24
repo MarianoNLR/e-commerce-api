@@ -9,7 +9,7 @@ import 'dotenv/config'
 import { AppError } from '../errors/AppError.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 
-const MP_STATUS_MAP = Object.freeze({
+export const MP_STATUS_MAP = Object.freeze({
     approved: 'paid',
     pending: 'pending_payment',
     authorized: 'pending_payment',
@@ -51,13 +51,13 @@ export async function setPreferences ({ userId, shipping_info }) {
             body: {
                 items,
                 back_urls: {
-                success: 'https://e-commerce-react-live.vercel.app/checkout/success',
-                failure: 'https://e-commerce-react-live.vercel.app/checkout/failure',
-                pending: 'https://e-commerce-react-live.vercel.app/'
+                success: 'https://e-commerce-react-live.vercel.app/checkout/payment-result',
+                failure: 'https://e-commerce-react-live.vercel.app/checkout/payment-result',
+                pending: 'https://e-commerce-react-live.vercel.app/checkout/payment-result'
                 },
                 auto_return: 'all',
                 notification_url: 'https://e-commerce-api-gpfg.onrender.com/api/v1/checkout/webhook',
-                external_reference: JSON.stringify({ userId, orderId: newOrder._id }),
+                external_reference: newOrder._id,
                 expires: true,
                 expiration_date_from: new Date(),
                 expiration_date_to: new Date(Date.now() + 30 * 60 * 1000) // Expira en 30 minutos
@@ -88,8 +88,7 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     console.log('PAYMENT DATA: ', status, transaction_amount, id, externalReference)
 
-    const { userId, orderId } = JSON.parse(externalReference)
-    const order = await orderService.getOrderById(orderId)
+    const order = await orderService.getOrderById(externalReference)
     if (!order) {
         console.error('Order not found for ID:', externalReference)
         throw new NotFoundError('Order not found.');
@@ -100,7 +99,7 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     // Validate payment amount
     if (order.total !== transaction_amount) {
-        console.error('Payment amount does not match order total. Order ID:', externalReference.orderId)
+        console.error('Payment amount does not match order total. Order ID:', externalReference)
         throw new AppError('Payment amount mismatch.', 400);
     }
 
@@ -112,7 +111,7 @@ export async function receiveWebhook ({ paymentInfo }) {
 
     if (order.status === newStatusOrder) return order;
 
-    const updatedOrder = await orderService.processPaymentStatusChange({ order, newStatus: newStatusOrder, paymentId: id, userId })
+    const updatedOrder = await orderService.processPaymentStatusChange({ order, newStatus: newStatusOrder, paymentId: id, userId: order.user })
     
     return updatedOrder
 }
