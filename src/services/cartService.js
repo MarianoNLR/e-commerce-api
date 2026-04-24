@@ -32,7 +32,7 @@ export async function addItemToCart (userId, productId, quantity) {
     await userCart.save()
     const updatedCart = await Cart.findOne({ user: userId }).populate('items.product')
 
-    return { updatedCart }
+    return updatedCart
 }
 
 export async function createCartForUser(userId) {
