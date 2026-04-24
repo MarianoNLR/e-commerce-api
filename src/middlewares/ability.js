@@ -1,8 +1,9 @@
 import { defineAbilitiesFor } from '../casl/abilities.js'
+import { UnauthorizedError } from '../errors/UnauthorizedError.js'
 
 export function defineAbilityMiddleware (req, res, next) {
   if (!req.user) {
-    return res.status(401).json({ error: 'User not authenticated' })
+    return next(new UnauthorizedError('User not authenticated'))
   }
 
   req.ability = defineAbilitiesFor(req.user)
