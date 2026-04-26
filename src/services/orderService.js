@@ -114,7 +114,7 @@ export async function createOrder({ userId, shippingInfo }) {
         });
 
         // await Cart.findOneAndDelete({ user: userId });
-
+        await clearCartByUserId(userId)
         await newOrder.save({ session });
 
         await session.commitTransaction();
