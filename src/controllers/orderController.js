@@ -4,11 +4,30 @@ import * as orderService from '../services/orderService.js'
 import { accessibleBy } from '@casl/mongoose'
 import { sendSuccess } from '../utils/apiResponse.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
+import { BadRequestError } from '../errors/BadRequestError.js'
 
 export async function getOrders (req, res, next) {
   try {
-    const filter = accessibleBy(req.ability, 'read').ofType('Order')
-    console.log('FILTER IN GET ORDERS: ', filter)
+    const { status, limit, page } = req.query
+    console.log('STATUS IN GET ORDERS CONTROLLER: ', req.query)
+    const abilityFilter = accessibleBy(req.ability, 'read').ofType('Order')
+    const allowedStatuses = [
+      'pending_payment',
+      'paid',
+      'payment_failed',
+      'shipped',
+      'cancelled',
+      'expired'
+    ]
+
+    let filter = abilityFilter
+    if (status && status !== 'all') {
+      if (!allowedStatuses.includes(status)) {
+        throw new BadRequestError('Invalid order status.')
+      }
+      filter = { $and: [abilityFilter, { status }] }
+    }
+
     const result = await orderService.getOrders({
       filter,
       page: Math.max(parseInt(req.query.page) || 1, 1),
