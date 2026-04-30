@@ -6,6 +6,9 @@ import { unlink } from "fs/promises";
 import 'dotenv/config'
 import cloudinary from "../config/cloudinary.js";
 import { AppError } from "../errors/AppError.js";
+import Cart from "../models/Cart.js";
+import { BadRequestError } from "../errors/BadRequestError.js";
+import { NotFoundError } from "../errors/NotFoundError.js";
 
 const isValidObjectId = (id) => mongoose.isValidObjectId(id);
 
@@ -252,19 +255,27 @@ export async function deleteProduct({ productId }) {
         throw err
     }
 
-    const result = await Product.deleteOne({ _id: productId })
+    const session = await mongoose.startSession()
+    try {
+        await session.withTransaction(async () => {
+            const result = await Product.deleteOne({ _id: productId }, { session })
 
-    if (result.deletedCount === 0) {
-        const err = new AppError('Product not found')
-        err.status = 404
-        throw err
+            if (result.deletedCount === 0) {
+                const err = new AppError('Product not found')
+                err.status = 404
+                throw err
+            }
+
+            // Also remove the product from all carts
+            await Cart.updateMany(
+                { 'items.product': productId },
+                { $pull: { items: { product: productId } } },
+                { session }
+            )
+        })
+    } finally {
+        await session.endSession()
     }
-
-    // Also remove the product from all carts
-    await Cart.updateMany(
-        { 'items.product': productId },
-        { $pull: { items: { product: productId } } }
-)
 
     return { message: 'Product deleted successfully' }
 }
