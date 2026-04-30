@@ -40,7 +40,7 @@ productRouter.post('/', (req, res, next) => {
       return next(new BadRequestError(err.message))
     }
     validate(addProductSchema)
-    add(req, res)
+    productController.add(req, res)
   })
 })
 
