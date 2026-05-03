@@ -41,8 +41,11 @@ const orderSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ['pending_payment', 'paid', 'payment_failed', 'shipped', 'cancelled', 'expired'],
+    enum: ['pending_payment', 'pending_validation', 'paid', 'payment_failed', 'shipped', 'cancelled', 'expired'],
     default: 'pending_payment'
+  },
+  proof_of_payment_url: {
+    type: String
   },
   expires_at: {
     type: Date,

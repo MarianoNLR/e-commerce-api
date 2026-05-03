@@ -9,6 +9,7 @@ import { AppError } from '../errors/AppError.js';
 import mongoose from 'mongoose';
 import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
+import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
 
 export async function getOrders({ filter, page = 1, limit = 5 }) {
     const skip = (page - 1) * limit;
@@ -128,6 +129,28 @@ export async function createOrder({ userId, shippingInfo }) {
         throw error;
     } finally {
         session.endSession();
+    }
+}
+
+export async function uploadPaymentProof({ orderId, filter, file }) {
+    const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
+
+    const order = await Order.findOneAndUpdate(
+        { _id: orderId, ...filter },
+        {
+            proof_of_payment_url: uploadResult.secure_url,
+            status: 'pending_validation'
+        },
+        { new: true }
+    )
+
+    if (!order) {
+        throw new NotFoundError('Order not found.')
+    }
+
+    return {
+        order,
+        proof_of_payment_url: uploadResult.secure_url
     }
 }
 
