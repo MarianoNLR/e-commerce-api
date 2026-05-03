@@ -119,3 +119,25 @@ export async function createOrder (req, res, next) {
     next(error)
   }
 }
+
+export async function uploadPaymentProof (req, res, next) {
+  const { orderId } = req.params
+
+  try {
+    if (!req.file) {
+      throw new BadRequestError('Payment proof file is required.')
+    }
+
+    const filter = accessibleBy(req.ability, 'update').ofType('Order')
+    const result = await orderService.uploadPaymentProof({
+      orderId,
+      filter,
+      file: req.file
+    })
+
+    return sendSuccess(res, result, 200)
+  } catch (error) {
+    console.error('Failed to upload payment proof:', error)
+    next(error)
+  }
+}
