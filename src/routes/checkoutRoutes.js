@@ -1,10 +1,10 @@
 import express from 'express'
-import { receiveWebhook, setPreferences } from '../controllers/checkoutController.js'
+import { receiveWebhook, createPayment } from '../controllers/checkoutController.js'
 import { authUser } from '../middlewares/authUser.js'
 
 const checkoutRouter = express.Router()
 
-checkoutRouter.post('/', authUser, setPreferences)
-checkoutRouter.post('/webhook', receiveWebhook)
+checkoutRouter.post('/', authUser, createPayment)
+checkoutRouter.post('/webhook/:provider', receiveWebhook)
 
 export default checkoutRouter
