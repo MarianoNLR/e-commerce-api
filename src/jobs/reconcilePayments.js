@@ -1,7 +1,7 @@
 import Order from '../models/Order.js'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 import * as orderService from '../services/orderService.js'
-import { MP_STATUS_MAP } from '../services/checkoutService.js'
+import { MP_STATUS_MAP } from '../services/payments/strategies/MercadoPagoStrategy.js'
 import 'dotenv/config'
 
 const { MP_ACCESS_TOKEN } = process.env
@@ -40,17 +40,17 @@ async function reconcilePayments () {
                 continue
             }
 
-            const newStatus = MP_STATUS_MAP[paymentData.status]
-            if (!newStatus) {
-                console.warn(`Unrecognized payment status '${paymentData.status}' for order ${order._id}.`)
-                continue
-            }
+            //const newStatus = MP_STATUS_MAP[paymentData.status]
+            //if (!newStatus) {
+            //    console.warn(`Unrecognized payment status '${paymentData.status}' for order ${order._id}.`)
+            //    continue
+            //}
 
-            if (order.status === newStatus || newStatus === 'pending_payment') {
-                continue
-            }
+            //if (order.status === newStatus || newStatus === 'pending_payment') {
+            //    continue
+            //}
 
-            await orderService.processPaymentStatusChange({ order, newStatus, paymentId: paymentRef, userId: order.user })
+            //await orderService.processPaymentStatusChange({ order, newStatus, paymentId: paymentRef, userId: order.user })
         } catch (error) {
             console.error(`Error processing payment for order ${order._id}:`, error)
         }
