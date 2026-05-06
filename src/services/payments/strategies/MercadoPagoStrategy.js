@@ -19,17 +19,15 @@ export function createMercadoPagoStrategy({ accessToken }) {
   const payment = new Payment(client)
   const preference = new Preference(client)
 
-  async function createPayment({ userId, shippingInfo }) {
-    const [cart] = await Cart.find({ user: userId }).populate('items.product')
-    if (!cart) throw new AppError('Cart not found for user.', 404)
-
-    const items = cart.items.map(item => ({
-      title: item.product.name,
+  async function createPayment({ userId, shippingInfo, orderId }) {
+    const order = await orderService.getOrderById(orderId)
+    if (!order) throw new NotFoundError('Order not found.')
+    console.log('ORDER IN CREATE PAYMENT MERCADOPAGO STRATEGY: ', order)
+    const items = order.items.map(item => ({
+      title: item.name,
       quantity: item.quantity,
-      unit_price: item.product.price
+      unit_price: item.priceAtPurchase
     }))
-
-    const { newOrder } = await orderService.createOrder({ userId, shippingInfo })
 
     return preference.create({
       body: {
@@ -41,7 +39,7 @@ export function createMercadoPagoStrategy({ accessToken }) {
         },
         auto_return: 'all',
         notification_url: 'https://e-commerce-api-gpfg.onrender.com/api/v1/checkout/webhook/mercadopago',
-        external_reference: newOrder._id,
+        external_reference: order._id,
         expires: true,
         expiration_date_from: new Date(),
         expiration_date_to: new Date(Date.now() + 30 * 60 * 1000)
