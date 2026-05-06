@@ -3,12 +3,13 @@ import { sendSuccess } from '../utils/apiResponse.js'
 
 export async function createPayment(req, res, next) {
   const { userId } = req
-  const { shipping_info, payment_method } = req.body
+  const { shipping_info, payment_method, order_id } = req.body
   try {
     const result = await checkoutService.createPayment({
       userId,
       shippingInfo: shipping_info,
-      paymentMethod: payment_method
+      paymentMethod: payment_method,
+      orderId: order_id
     })
     return sendSuccess(res, { result }, 200)
   } catch (error) {
