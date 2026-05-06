@@ -13,6 +13,7 @@ export async function getOrders (req, res, next) {
     const abilityFilter = accessibleBy(req.ability, 'read').ofType('Order')
     const allowedStatuses = [
       'pending_payment',
+      'pending_validation',
       'paid',
       'payment_failed',
       'shipped',
