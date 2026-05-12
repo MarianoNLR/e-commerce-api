@@ -15,6 +15,9 @@ export function startOrderExpiration() {
 export async function expirePendingOrders() {
     const session = await mongoose.startSession()
     try {
+        // Start a transaction to ensure atomicity
+        // TODO: Use one transaction per order instead of a single transaction for all orders
+        // to reduce transaction duration and lock contention
         session.startTransaction()
         const expiredOrders = await Order.find({
             status: 'pending_payment',
@@ -39,10 +42,8 @@ export async function expirePendingOrders() {
                     { session }
                 )
             }
-
-            await session.commitTransaction()
-
         }
+        await session.commitTransaction()
     } catch (error) {
         await session.abortTransaction()
         console.error('Error expiring orders:', error)
