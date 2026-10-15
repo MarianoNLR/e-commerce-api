@@ -42,11 +42,71 @@ export async function getOrderById(orderId, filter) {
 }
 
 export async function updateOrderStatus({ orderId, status, filter }) {
-    const order = await Order.findOneAndUpdate({_id: orderId, ...filter}, { status }, { new: true });
-    if (!order) {
-        throw new NotFoundError('Order not found.'); 
+    const order = await transitionOrderStatus({
+        orderId,
+        newStatus: status,
+        filter
+    })
+
+    return { order }
+}
+
+/**
+ * Applies an order status transition and its inventory side effects atomically.
+ *
+ * A cancellation releases the inventory reserved when the order was created.
+ * The conditional update makes a repeated request observe the terminal status
+ * instead of returning the same inventory twice.
+ */
+export async function transitionOrderStatus({ orderId, newStatus, filter = {} }) {
+    const session = await mongoose.startSession()
+
+    try {
+        let updatedOrder
+
+        await session.withTransaction(async () => {
+            const order = await Order.findOne({ _id: orderId, ...filter }).session(session)
+
+            if (!order) {
+                throw new NotFoundError('Order not found.')
+            }
+
+            const stateMachine = new OrderStateMachine(order)
+            if (!stateMachine.canTransitionTo(newStatus)) {
+                throw new BadRequestError(`Invalid state transition from ${order.status} to ${newStatus}.`)
+            }
+
+            updatedOrder = await Order.findOneAndUpdate(
+                { _id: order._id, status: order.status },
+                { $set: { status: newStatus } },
+                { new: true, session }
+            )
+
+            // The transaction may be retried after a concurrent write. Do not
+            // release stock unless this transaction changed the pending order.
+            if (!updatedOrder) {
+                throw new BadRequestError('Order status changed before the transition could be completed.')
+            }
+
+            if (newStatus === 'cancelled') {
+                for (const item of order.items) {
+                    const product = await Product.findByIdAndUpdate(
+                        item.productId,
+                        { $inc: { quantity: item.quantity } },
+                        { new: true, session }
+                    )
+
+                    if (!product) {
+                        throw new NotFoundError(`Product ${item.productId} not found.`)
+                    }
+                }
+            }
+        })
+
+        return updatedOrder
+    } finally {
+        await session.endSession()
     }
-    return { order };
 }
 
 // export async function payWithMercadoPago({ orderId, status, paymentId }) {

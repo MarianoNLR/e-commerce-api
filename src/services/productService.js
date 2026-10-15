@@ -314,9 +314,7 @@ export async function reactivateProduct({ id }) {
 
 export async function decreaseStock(productId, amount, session) {
     if (!productId || !isValidObjectId(productId)) {
-        const err = new AppError('Valid product ID is required')
-        err.status = 400
-        throw err
+        throw new BadRequestError('Valid product ID is required')
     }
     const product = await Product.findOneAndUpdate(
         { _id: productId, 
@@ -325,9 +323,7 @@ export async function decreaseStock(productId, amount, session) {
         { new: true, session }
     )
     if (!product) {
-        const err = new AppError('Insufficient stock or product not found.')
-        err.status = 400
-        throw err
+        throw new BadRequestError('Insufficient stock or product not found.')
     }
     return product
 }
