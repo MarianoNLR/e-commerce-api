@@ -1,11 +1,9 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
-import Product from '../models/Product.js';
 import * as productService from './productService.js';
 import { clearCartByUserId } from './cartService.js';
 import { NotFoundError } from '../errors/NotFoundError.js';
 import { BadRequestError } from '../errors/BadRequestError.js';
-import { AppError } from '../errors/AppError.js';
 import mongoose from 'mongoose';
 import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
@@ -54,11 +52,12 @@ export async function updateOrderStatus({ orderId, status, filter }) {
 /**
  * Applies an order status transition and its inventory side effects atomically.
  *
- * A cancellation releases the inventory reserved when the order was created.
+ * Cancellations and failed payments release the inventory reserved when the
+ * order was created.
  * The conditional update makes a repeated request observe the terminal status
  * instead of returning the same inventory twice.
  */
-export async function transitionOrderStatus({ orderId, newStatus, filter = {} }) {
+export async function transitionOrderStatus({ orderId, newStatus, filter = {}, paymentId }) {
     const session = await mongoose.startSession()
 
     try {
@@ -76,9 +75,14 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {} })
                 throw new BadRequestError(`Invalid state transition from ${order.status} to ${newStatus}.`)
             }
 
+            const statusUpdate = { status: newStatus }
+            if (paymentId !== undefined && paymentId !== null) {
+                statusUpdate.payment_id = paymentId.toString()
+            }
+
             updatedOrder = await Order.findOneAndUpdate(
                 { _id: order._id, status: order.status },
-                { $set: { status: newStatus } },
+                { $set: statusUpdate },
                 { new: true, session }
             )
 
@@ -88,17 +92,9 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {} })
                 throw new BadRequestError('Order status changed before the transition could be completed.')
             }
 
-            if (newStatus === 'cancelled') {
+            if (newStatus === 'cancelled' || newStatus === 'payment_failed') {
                 for (const item of order.items) {
-                    const product = await Product.findByIdAndUpdate(
-                        item.productId,
-                        { $inc: { quantity: item.quantity } },
-                        { new: true, session }
-                    )
-
-                    if (!product) {
-                        throw new NotFoundError(`Product ${item.productId} not found.`)
-                    }
+                    await productService.releaseStock(item.productId, item.quantity, session)
                 }
             }
         })
@@ -214,54 +210,14 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
     }
 }
 
-// This function is used to ensure that only one status update happens for a given payment ID.
-export async function updateOrderStatusConditional({ orderId, newStatus, currentStatus, paymentId }) {
-    //TODO: handle refund case.
-    const updatedOrder = await Order.findOneAndUpdate(
-        { 
-            _id: orderId,
-            status: currentStatus,
-            payment_id: { $ne: paymentId.toString() }
-        },
-        { $set: { 
-            status: newStatus,
-            payment_id: paymentId.toString()
-            } 
-        },
-        { new: true }
-    );
-
-    return updatedOrder;
-}
-
 // This function is used to process payment status changes from MercadoPago, 
 // ensuring valid state transitions and handling side effects like stock release and email notifications.
 export async function processPaymentStatusChange({ order, newStatus, paymentId, userId }) {
-    const stateMachine = new OrderStateMachine(order)
-
-    // Validate state transition
-    if (!stateMachine.canTransitionTo(newStatus)) {
-        console.error(`Invalid state transition from ${order.status} to ${newStatus} for order ID:`, order._id)
-        throw new AppError(`Invalid state transition from ${order.status} to ${newStatus}.`, 400);
-    }
-    
-    const updatedOrder = await updateOrderStatusConditional({ 
-        orderId: order._id, 
-        newStatus, 
-        currentStatus: order.status, 
-        paymentId 
+    const updatedOrder = await transitionOrderStatus({
+        orderId: order._id,
+        newStatus,
+        paymentId
     })
-    if (!updatedOrder) {
-        // This means the order was not found or it has already been updated with this payment ID (idempotency)
-        console.warn(`Order with ID ${order._id} was already updated with payment ID ${paymentId}. Skipping status update.`)
-        return
-    }
-
-    if (newStatus === 'payment_failed' || newStatus === 'cancelled') {
-        for (const item of order.items) {
-            await productService.releaseStock(item.productId, item.quantity)
-        }
-    }
 
     if (newStatus === 'paid') {
         await clearCartByUserId(userId)

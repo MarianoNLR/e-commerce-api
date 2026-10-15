@@ -328,13 +328,13 @@ export async function decreaseStock(productId, amount, session) {
     return product
 }
 
-export async function releaseStock(productId, amount) {
+export async function releaseStock(productId, amount, session) {
     if (!productId || !isValidObjectId(productId)) {
         const err = new AppError('Valid product ID is required')
         err.status = 400
         throw err
     }
-    const product = await Product.findByIdAndUpdate(productId, { $inc: { quantity: amount } }, { new: true })
+    const product = await Product.findByIdAndUpdate(productId, { $inc: { quantity: amount } }, { new: true, session })
     if (!product) {
         const err = new AppError('Product not found.')
         err.status = 404
