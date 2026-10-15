@@ -52,8 +52,8 @@ export async function updateOrderStatus({ orderId, status, filter }) {
 /**
  * Applies an order status transition and its inventory side effects atomically.
  *
- * Cancellations and failed payments release the inventory reserved when the
- * order was created.
+ * Cancellations, failed payments, and expirations release the inventory
+ * reserved when the order was created.
  * The conditional update makes a repeated request observe the terminal status
  * instead of returning the same inventory twice.
  */
@@ -92,9 +92,13 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {}, p
                 throw new BadRequestError('Order status changed before the transition could be completed.')
             }
 
-            if (newStatus === 'cancelled' || newStatus === 'payment_failed') {
+            if (newStatus === 'cancelled' || newStatus === 'payment_failed' || newStatus === 'expired') {
                 for (const item of order.items) {
-                    await productService.releaseStock(item.productId, item.quantity, session)
+                    // Orders keep an item snapshot. If an administrator removed
+                    // the current product document, there is no inventory left to
+                    // restore for that item. Other database errors must still
+                    // abort the transaction.
+                    await productService.releaseStock(item.productId, item.quantity, session, { ignoreMissing: true })
                 }
             }
         })

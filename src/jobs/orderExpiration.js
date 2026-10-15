@@ -1,6 +1,5 @@
-import mongoose from "mongoose";
-import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import { transitionOrderStatus } from "../services/orderService.js";
 
 export function startOrderExpiration() {
     setInterval(async () => {
@@ -13,42 +12,21 @@ export function startOrderExpiration() {
 }
 
 export async function expirePendingOrders() {
-    const session = await mongoose.startSession()
-    try {
-        // Start a transaction to ensure atomicity
-        // TODO: Use one transaction per order instead of a single transaction for all orders
-        // to reduce transaction duration and lock contention
-        session.startTransaction()
-        const expiredOrders = await Order.find({
-            status: 'pending_payment',
-            expires_at: { $lte: new Date() }
-        }).session(session)
+    const expiredOrders = await Order.find({
+        status: 'pending_payment',
+        expires_at: { $lte: new Date() }
+    }).select('_id')
 
-        for (const order of expiredOrders) {
-            const updatedOrder = await Order.findOneAndUpdate(
-                { 
-                    _id: order._id, 
-                    status: 'pending_payment' 
-                },
-                { $set: { status: 'expired' } },
-                { new: true, session }
-            )
-
-            if (!updatedOrder) continue
-            for (const item of order.items) {
-                await Product.findByIdAndUpdate(
-                    item.productId,
-                    { $inc: { quantity: item.quantity } },
-                    { session }
-                )
-            }
+    for (const order of expiredOrders) {
+        try {
+            await transitionOrderStatus({
+                orderId: order._id,
+                newStatus: 'expired'
+            })
+        } catch (error) {
+            // One malformed order or transient database failure must not keep
+            // the rest of the expired queue from being processed.
+            console.error(`Error expiring order ${order._id}:`, error)
         }
-        await session.commitTransaction()
-    } catch (error) {
-        await session.abortTransaction()
-        console.error('Error expiring orders:', error)
-        throw error
-    } finally {
-        session.endSession()
     }
 }

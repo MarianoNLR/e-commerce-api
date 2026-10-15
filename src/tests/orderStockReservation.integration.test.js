@@ -183,4 +183,42 @@ describe('Order stock reservations', () => {
     expect(productAfterTwoExpirationRuns.quantity).toBe(10)
     expect(cartAfterExpiration).toBeNull()
   })
+
+  it('expires an order and restores stock only for products that still exist', async () => {
+    const { user, product: existingProduct, cart, token } = await createCheckoutFixture({
+      stock: 10,
+      cartQuantity: 2
+    })
+    const deletedProduct = await Product.create({
+      name: 'Producto eliminado antes del vencimiento',
+      description: 'Simula un producto eliminado antes de liberar la reserva',
+      price: 75,
+      quantity: 10
+    })
+
+    cart.items.push({ product: deletedProduct._id, quantity: 1 })
+    cart.totalPrice += deletedProduct.price
+    await cart.save()
+
+    const createResponse = await createOrderThroughApi(token)
+    expect(createResponse.status).toBe(201)
+
+    const orderId = createResponse.body.data.newOrder.id
+    await Order.findByIdAndUpdate(orderId, {
+      expires_at: new Date(Date.now() - 60 * 1000)
+    })
+    await Product.findByIdAndDelete(deletedProduct._id)
+
+    await expirePendingOrders()
+
+    const orderAfterExpiration = await Order.findById(orderId)
+    const existingProductAfterExpiration = await Product.findById(existingProduct._id)
+
+    // A deleted product has no inventory left to restore. The order can still
+    // finish expiring and its remaining products must release their stock.
+    expect(orderAfterExpiration.status).toBe('expired')
+    expect(existingProductAfterExpiration.quantity).toBe(10)
+    expect(await Product.findById(deletedProduct._id)).toBeNull()
+    expect(await Order.countDocuments({ user: user._id })).toBe(1)
+  })
 })

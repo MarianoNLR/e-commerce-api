@@ -198,7 +198,7 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
     expect(productAfterInvalidWebhook.quantity).toBe(8)
   })
 
-  it('does not leave the order or already-restored products partially updated when a stock release fails', async () => {
+  it('finishes a rejected payment and restores stock only for products that still exist', async () => {
     const uniqueSuffix = `${Date.now()}-${Math.random()}`
     const user = await User.create({
       name: 'Atomicity',
@@ -209,7 +209,7 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
     })
     const existingProduct = await Product.create({
       name: 'Producto que permanece disponible',
-      description: 'Debe conservar su reserva si falla liberar otro producto',
+      description: 'Debe recuperar su reserva aunque otro producto se haya eliminado',
       price: 125,
       quantity: 10
     })
@@ -248,11 +248,11 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
 
     await sendWebhook('payment-rejected-partial-release')
 
-    const orderAfterFailedRelease = await Order.findById(order._id)
-    const existingProductAfterFailedRelease = await Product.findById(existingProduct._id)
+    const orderAfterRelease = await Order.findById(order._id)
+    const existingProductAfterRelease = await Product.findById(existingProduct._id)
 
-    expect(orderAfterFailedRelease.status).toBe('pending_payment')
-    expect(orderAfterFailedRelease.payment_id).toBeUndefined()
-    expect(existingProductAfterFailedRelease.quantity).toBe(8)
+    expect(orderAfterRelease.status).toBe('payment_failed')
+    expect(orderAfterRelease.payment_id).toBe('payment-rejected-partial-release')
+    expect(existingProductAfterRelease.quantity).toBe(10)
   })
 })
