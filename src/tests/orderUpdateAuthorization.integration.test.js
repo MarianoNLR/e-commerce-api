@@ -76,6 +76,7 @@ async function createPendingOrder (user, overrides = {}) {
     }],
     total: 200,
     shipping_info: shippingInfo,
+    payment_method: 'bank_transfer',
     status: 'pending_payment',
     ...overrides
   })

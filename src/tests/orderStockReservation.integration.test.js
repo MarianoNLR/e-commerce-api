@@ -74,11 +74,11 @@ async function createCheckoutFixture ({ stock = 10, cartQuantity = 2 } = {}) {
   return { user, product, cart, token: createToken(user) }
 }
 
-async function createOrderThroughApi (token) {
+async function createOrderThroughApi (token, paymentMethod = 'bank_transfer') {
   return await request(app)
     .post('/api/v1/orders')
     .set('Authorization', `Bearer ${token}`)
-    .send({ shipping_info: shippingInfo })
+    .send({ shipping_info: shippingInfo, payment_method: paymentMethod })
 }
 
 describe('Order stock reservations', () => {

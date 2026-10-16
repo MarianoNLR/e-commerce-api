@@ -111,7 +111,7 @@ async function createReservedOrder () {
   const response = await request(app)
     .post('/api/v1/orders')
     .set('Authorization', `Bearer ${createToken(user)}`)
-    .send({ shipping_info: shippingInfo })
+    .send({ shipping_info: shippingInfo, payment_method: 'mercadopago' })
 
   expect(response.status).toBe(201)
 
@@ -232,7 +232,7 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
     const createOrderResponse = await request(app)
       .post('/api/v1/orders')
       .set('Authorization', `Bearer ${createToken(user)}`)
-      .send({ shipping_info: shippingInfo })
+      .send({ shipping_info: shippingInfo, payment_method: 'mercadopago' })
 
     expect(createOrderResponse.status).toBe(201)
 

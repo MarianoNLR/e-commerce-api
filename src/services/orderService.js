@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
+import { PAYMENT_METHODS, isPaymentMethod } from '../lib/paymentMethods.js';
 
 export async function getOrders({ filter, page = 1, limit = 5 }) {
     const skip = (page - 1) * limit;
@@ -134,7 +135,11 @@ export async function updateOrder(orderId, updateData) {
     return { order };
 }
 
-export async function createOrder({ userId, shippingInfo }) {
+export async function createOrder({ userId, shippingInfo, paymentMethod }) {
+    if (!isPaymentMethod(paymentMethod)) {
+        throw new BadRequestError('Invalid payment method.')
+    }
+
     const session = await mongoose.startSession();
 
     try {
@@ -174,6 +179,7 @@ export async function createOrder({ userId, shippingInfo }) {
                 })),
                 total,
                 shipping_info: shippingInfo,
+                payment_method: paymentMethod,
                 status: 'pending_payment'
             })
 
@@ -189,15 +195,31 @@ export async function createOrder({ userId, shippingInfo }) {
     }
 }
 
-export async function uploadPaymentProof({ orderId, filter, file }) {
-    const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
+export async function getOrderForPayment({ orderId, userId, paymentMethod }) {
+    if (!isPaymentMethod(paymentMethod)) {
+        throw new BadRequestError('Invalid payment method.')
+    }
 
-    const order = await Order.findOneAndUpdate(
-        { _id: orderId, ...filter },
-        {
-            proof_of_payment_url: uploadResult.secure_url,
-            status: 'pending_validation'
-        },
+    const order = await Order.findOne({ _id: orderId, user: userId })
+    if (!order) {
+        throw new NotFoundError('Order not found.')
+    }
+
+    if (order.payment_method !== paymentMethod) {
+        throw new BadRequestError('Payment method does not match the order.')
+    }
+
+    if (order.status !== 'pending_payment') {
+        throw new BadRequestError('Order is not available for payment.')
+    }
+
+    return order
+}
+
+export async function savePaymentPreference({ orderId, preferenceId }) {
+    const order = await Order.findByIdAndUpdate(
+        orderId,
+        { payment_preference_id: preferenceId },
         { new: true }
     )
 
@@ -205,8 +227,36 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
         throw new NotFoundError('Order not found.')
     }
 
+    return order
+}
+
+export async function uploadPaymentProof({ orderId, filter, file }) {
+    const order = await Order.findOne({ _id: orderId, ...filter })
+    if (!order) {
+        throw new NotFoundError('Order not found.')
+    }
+
+    if (order.payment_method !== PAYMENT_METHODS.BANK_TRANSFER) {
+        throw new BadRequestError('Payment proof is only available for bank transfers.')
+    }
+
+    const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
+
+    const updatedOrder = await Order.findOneAndUpdate(
+        { _id: order._id, ...filter, payment_method: PAYMENT_METHODS.BANK_TRANSFER },
+        {
+            proof_of_payment_url: uploadResult.secure_url,
+            status: 'pending_validation'
+        },
+        { new: true }
+    )
+
+    if (!updatedOrder) {
+        throw new NotFoundError('Order not found.')
+    }
+
     return {
-        order,
+        order: updatedOrder,
         proof_of_payment_url: uploadResult.secure_url
     }
 }

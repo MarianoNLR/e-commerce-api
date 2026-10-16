@@ -128,9 +128,9 @@ export async function updateOrder (req, res, next) {
 
 export async function createOrder (req, res, next) {
   try {
-    const { shipping_info: shippingInfo } = req.body
+    const { shipping_info: shippingInfo, payment_method: paymentMethod } = req.body
     console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
-    const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo })
+    const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo, paymentMethod })
     console.log("NEW ORDER: ", newOrder)
     return sendSuccess(res, newOrder, 201)
   } catch (error) {

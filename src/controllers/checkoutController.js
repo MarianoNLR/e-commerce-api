@@ -3,11 +3,10 @@ import { sendSuccess } from '../utils/apiResponse.js'
 
 export async function createPayment(req, res, next) {
   const { userId } = req
-  const { shipping_info, payment_method, order_id } = req.body
+  const { payment_method, order_id } = req.body
   try {
     const result = await checkoutService.createPayment({
       userId,
-      shippingInfo: shipping_info,
       paymentMethod: payment_method,
       orderId: order_id
     })
@@ -19,6 +18,8 @@ export async function createPayment(req, res, next) {
 }
 
 export const receiveWebhook = async (req, res, next) => {
+  console.log('Received webhook with query:', req.query)
+  console.log('Received webhook with params:', req.params)
   const paymentInfo = req.query
   const { provider } = req.params
   try {

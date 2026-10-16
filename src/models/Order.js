@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose'
+import { PAYMENT_METHOD_VALUES } from '../lib/paymentMethods.js'
 
 const OrderItemSnapshotSchema = new Schema({
   productId: {
@@ -37,6 +38,14 @@ const orderSchema = new Schema({
     default: 0
   },
   payment_id: {
+    type: String
+  },
+  payment_method: {
+    type: String,
+    enum: PAYMENT_METHOD_VALUES,
+    required: true
+  },
+  payment_preference_id: {
     type: String
   },
   status: {

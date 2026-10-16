@@ -1,8 +1,11 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
-import Cart from '../../../models/Cart.js'
 import * as orderService from '../../orderService.js'
 import { AppError } from '../../../errors/AppError.js'
-import { NotFoundError } from '../../../errors/NotFoundError.js'
+import dotenv from 'dotenv'
+
+dotenv.config({
+  path: `.env.${process.env.NODE_ENV}`
+})
 
 export const MP_STATUS_MAP = Object.freeze({
   approved: 'paid',
@@ -19,9 +22,11 @@ export function createMercadoPagoStrategy({ accessToken }) {
   const payment = new Payment(client)
   const preference = new Preference(client)
 
-  async function createPayment({ userId, shippingInfo, orderId }) {
-    const order = await orderService.getOrderById(orderId)
-    if (!order) throw new NotFoundError('Order not found.')
+  async function createPayment({ order }) {
+    if (order.payment_preference_id) {
+      return { id: order.payment_preference_id }
+    }
+
     console.log('ORDER IN CREATE PAYMENT MERCADOPAGO STRATEGY: ', order)
     const items = order.items.map(item => ({
       title: item.name,
@@ -29,25 +34,33 @@ export function createMercadoPagoStrategy({ accessToken }) {
       unit_price: item.priceAtPurchase
     }))
 
-    return preference.create({
+    const paymentPreference = await preference.create({
       body: {
         items,
         back_urls: {
-          success: 'https://e-commerce-react-live.vercel.app/checkout/payment-result',
-          failure: 'https://e-commerce-react-live.vercel.app/checkout/payment-result',
-          pending: 'https://e-commerce-react-live.vercel.app/checkout/payment-result'
+          success: `${process.env.FRONTEND_URL}/checkout/payment-result`,
+          failure: `${process.env.FRONTEND_URL}/checkout/payment-result`,
+          pending: `${process.env.FRONTEND_URL}/checkout/payment-result`
         },
         auto_return: 'all',
-        notification_url: 'https://e-commerce-api-gpfg.onrender.com/api/v1/checkout/webhook/mercadopago',
+        notification_url: `${process.env.BASE_URL}/checkout/webhook/mercadopago`,
         external_reference: order._id,
         expires: true,
         expiration_date_from: new Date(),
         expiration_date_to: new Date(Date.now() + 30 * 60 * 1000)
       }
     })
+
+    await orderService.savePaymentPreference({
+      orderId: order._id,
+      preferenceId: paymentPreference.id
+    })
+
+    return paymentPreference
   }
 
     async function handleWebhook({ paymentInfo }) {
+      console.log('Handling MercadoPago webhook with info:', paymentInfo)
         const eventType = paymentInfo.type || paymentInfo.topic
         if (eventType !== 'payment') return
 
@@ -58,7 +71,6 @@ export function createMercadoPagoStrategy({ accessToken }) {
         const externalReference = paymentData.external_reference
 
         const order = await orderService.getOrderById(externalReference)
-        if (!order) throw new NotFoundError('Order not found.')
 
         if (order.payment_id === id) return order
 
