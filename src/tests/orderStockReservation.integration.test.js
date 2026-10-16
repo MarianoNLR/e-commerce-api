@@ -127,9 +127,8 @@ describe('Order stock reservations', () => {
     const orderId = createResponse.body.data.newOrder.id
 
     const cancelResponse = await request(app)
-      .put(`/api/v1/orders/${orderId}/status`)
+      .post(`/api/v1/orders/${orderId}/cancel`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ status: 'cancelled' })
 
     expect(cancelResponse.status).toBe(200)
 
@@ -146,18 +145,16 @@ describe('Order stock reservations', () => {
     const orderId = createResponse.body.data.newOrder.id
 
     const firstCancellation = await request(app)
-      .put(`/api/v1/orders/${orderId}/status`)
+      .post(`/api/v1/orders/${orderId}/cancel`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ status: 'cancelled' })
 
     expect(firstCancellation.status).toBe(200)
 
     // A duplicate delivery may return a no-op or a transition error. In either
     // case it must never return the same reservation twice.
     await request(app)
-      .put(`/api/v1/orders/${orderId}/status`)
+      .post(`/api/v1/orders/${orderId}/cancel`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ status: 'cancelled' })
 
     const productAfterDuplicateCancellation = await Product.findById(product._id)
     expect(productAfterDuplicateCancellation.quantity).toBe(10)

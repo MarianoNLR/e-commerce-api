@@ -20,7 +20,8 @@ export function defineAbilitiesFor (user) {
     can('update', 'User', { _id: user.id }) // users can update their own profile
     can('read', 'Category')
     can('create', 'Order')
-    can('update', 'Order', { user: user.id, status: 'pending_payment' }) // users can update their own orders
+    can('update', 'Order', { user: user.id, status: 'pending_payment' }) // used by payment-proof upload
+    can('cancel', 'Order', { user: user.id, status: 'pending_payment' })
     can('read', 'Order', { user: user._id }) // users can read their own orders
 
     can ('manage', 'Cart', { user: user._id }) // users can manage their own cart

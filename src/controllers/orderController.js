@@ -5,7 +5,6 @@ import { accessibleBy } from '@casl/mongoose'
 import { sendSuccess } from '../utils/apiResponse.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
-import { AppError } from '../errors/AppError.js'
 
 export async function getOrders (req, res, next) {
   try {
@@ -63,20 +62,30 @@ export async function updateOrderStatus (req, res, next) {
   const { orderId } = req.params
   const { status } = req.body
   try {
-    // A buyer can only cancel an order that is still pending. Payment approval
-    // comes from the payment provider, and fulfilment is handled by staff.
-    // The ownership/pending-state condition itself is still enforced by the
-    // CASL filter below.
-    if (req.user.role === 'user' && status !== 'cancelled') {
-      throw new AppError('Customers can only cancel their pending orders.', 403, 'FORBIDDEN')
-    }
-
     const filter = accessibleBy(req.ability, 'update').ofType('Order')
     const result = await orderService.updateOrderStatus({ orderId, status, filter })
     
     return sendSuccess(res, { order: result }, 200)
   } catch (error) {
     console.error('Failed to update order status:', error)
+    next(error)
+  }
+}
+
+export async function cancelOrder (req, res, next) {
+  const { orderId } = req.params
+
+  try {
+    const filter = accessibleBy(req.ability, 'cancel').ofType('Order')
+    const result = await orderService.updateOrderStatus({
+      orderId,
+      status: 'cancelled',
+      filter
+    })
+
+    return sendSuccess(res, { order: result }, 200)
+  } catch (error) {
+    console.error('Failed to cancel order:', error)
     next(error)
   }
 }
@@ -108,14 +117,6 @@ export async function updateOrder (req, res, next) {
   const { orderId } = req.params
   const updateData = req.body
   try {
-    // Orders are purchase snapshots. Buyers must not be able to alter prices,
-    // items, ownership, payment metadata, or their shipping information via a
-    // generic update endpoint. Purpose-built buyer actions (cancellation and
-    // payment-proof upload) remain available through their own endpoints.
-    if (req.user.role === 'user') {
-      throw new AppError('Customers cannot update orders directly.', 403, 'FORBIDDEN')
-    }
-
     //const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true })
     const order = await orderService.updateOrder(orderId, updateData)
     return sendSuccess(res, { order }, 200)

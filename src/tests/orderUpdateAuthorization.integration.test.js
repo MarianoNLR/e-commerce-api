@@ -45,7 +45,7 @@ function createToken (user) {
   )
 }
 
-async function createUser (label) {
+async function createUser (label, role = 'user') {
   const uniqueSuffix = `${label}-${Date.now()}-${Math.random()}`
 
   return await User.create({
@@ -53,7 +53,7 @@ async function createUser (label) {
     lastName: 'Tester',
     email: `${uniqueSuffix}@example.com`,
     password: 'password123',
-    role: 'user'
+    role
   })
 }
 
@@ -169,18 +169,48 @@ describe('Order update authorization', () => {
     expect(orderAfterAttempt.status).toBe('pending_payment')
   })
 
-  it('allows a user to cancel their own pending order through the status endpoint', async () => {
+  it('allows a user to cancel their own pending order through the cancel endpoint', async () => {
     const userA = await createUser('User A')
     const order = await createPendingOrder(userA)
 
     const response = await request(app)
-      .put(`/api/v1/orders/${order._id}/status`)
+      .post(`/api/v1/orders/${order._id}/cancel`)
       .set('Authorization', `Bearer ${createToken(userA)}`)
-      .send({ status: 'cancelled' })
 
     const orderAfterCancellation = await Order.findById(order._id)
 
     expect(response.status).toBe(200)
     expect(orderAfterCancellation.status).toBe('cancelled')
+  })
+
+  it('does not allow a user to cancel another user\'s pending order', async () => {
+    const userA = await createUser('User A')
+    const userB = await createUser('User B')
+    const orderB = await createPendingOrder(userB)
+
+    const response = await request(app)
+      .post(`/api/v1/orders/${orderB._id}/cancel`)
+      .set('Authorization', `Bearer ${createToken(userA)}`)
+
+    const orderAfterAttempt = await Order.findById(orderB._id)
+
+    expect(response.status).toBe(404)
+    expect(orderAfterAttempt.status).toBe('pending_payment')
+  })
+
+  it('allows a moderator to update an order status through the staff endpoint', async () => {
+    const moderator = await createUser('Moderator', 'moderator')
+    const customer = await createUser('Customer')
+    const order = await createPendingOrder(customer)
+
+    const response = await request(app)
+      .put(`/api/v1/orders/${order._id}/status`)
+      .set('Authorization', `Bearer ${createToken(moderator)}`)
+      .send({ status: 'paid' })
+
+    const orderAfterUpdate = await Order.findById(order._id)
+
+    expect(response.status).toBe(200)
+    expect(orderAfterUpdate.status).toBe('paid')
   })
 })
