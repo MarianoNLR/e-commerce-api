@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import mongoose from 'mongoose'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
@@ -31,6 +31,7 @@ beforeAll(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await mongoose.connection.dropDatabase()
 })
 
@@ -119,6 +120,43 @@ describe('Order stock reservations', () => {
     expect(cartAfterAttempt.items).toHaveLength(1)
     expect(cartAfterAttempt.items[0].quantity).toBe(2)
     expect(ordersAfterAttempt).toHaveLength(0)
+  })
+
+  it('rolls back stock and preserves the cart when saving the order fails', async () => {
+    const { user, product, cart, token } = await createCheckoutFixture({ stock: 10, cartQuantity: 2 })
+    vi.spyOn(Order.prototype, 'save').mockRejectedValueOnce(new Error('Forced order persistence failure'))
+
+    const response = await createOrderThroughApi(token)
+
+    const productAfterAttempt = await Product.findById(product._id)
+    const cartAfterAttempt = await Cart.findById(cart._id)
+    const ordersAfterAttempt = await Order.find({ user: user._id })
+
+    expect.soft(response.status).toBe(500)
+    expect.soft(productAfterAttempt.quantity).toBe(10)
+    expect.soft(cartAfterAttempt).not.toBeNull()
+    expect.soft(cartAfterAttempt?.items).toHaveLength(1)
+    expect.soft(cartAfterAttempt?.items[0]?.quantity).toBe(2)
+    expect.soft(ordersAfterAttempt).toHaveLength(0)
+  })
+
+  it('rejects an empty cart without creating an order or changing the cart', async () => {
+    const { user, product, cart, token } = await createCheckoutFixture({ stock: 10, cartQuantity: 2 })
+    cart.items = []
+    cart.totalPrice = 0
+    await cart.save()
+
+    const response = await createOrderThroughApi(token)
+
+    const productAfterAttempt = await Product.findById(product._id)
+    const cartAfterAttempt = await Cart.findById(cart._id)
+    const ordersAfterAttempt = await Order.find({ user: user._id })
+
+    expect.soft(response.status).toBe(400)
+    expect.soft(productAfterAttempt.quantity).toBe(10)
+    expect.soft(cartAfterAttempt).not.toBeNull()
+    expect.soft(cartAfterAttempt?.items).toHaveLength(0)
+    expect.soft(ordersAfterAttempt).toHaveLength(0)
   })
 
   it('releases the reserved stock when a user cancels a pending order', async () => {

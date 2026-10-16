@@ -135,60 +135,57 @@ export async function updateOrder(orderId, updateData) {
 }
 
 export async function createOrder({ userId, shippingInfo }) {
-    const cartUser = await Cart.findOne({ user: userId }).populate('items.product');
-    if (!cartUser) {
-        throw new NotFoundError('Cart not found.');   
-    }
-    console.log("Cart User in create order: ", cartUser)
-    // Transactional stock update and order creation
     const session = await mongoose.startSession();
+
     try {
-        session.startTransaction();
+        let newOrder
 
-        // recalculate total price
-        const total = cartUser.items.reduce((total, item) => {
-            return total + item.product.price * item.quantity;
-        }, 0);
+        await session.withTransaction(async () => {
+            const cartUser = await Cart.findOne({ user: userId })
+                .populate('items.product')
+                .session(session)
 
-        for (const item of cartUser.items) {
-            console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
-
-            const updated = await productService.decreaseStock(item.product._id, item.quantity, session)
-
-            if (!updated) {
-                throw new BadRequestError(`Insufficient stock for product ${item.product.name}`);
+            if (!cartUser) {
+                throw new NotFoundError('Cart not found.')
             }
-        }
 
-        const newOrder = new Order({
-            user: userId,
-            items: cartUser.items.map(item => ({
-                productId: item.product._id,
-                name: item.product.name,
-                description: item.product.description,
-                priceAtPurchase: item.product.price,
-                quantity: item.quantity
-            })),
-            total: total,
-            shipping_info: shippingInfo,
-            status: 'pending_payment'
-        });
+            if (cartUser.items.length === 0) {
+                throw new BadRequestError('Cart must contain at least one item.')
+            }
 
-        // await Cart.findOneAndDelete({ user: userId });
-        await clearCartByUserId(userId)
-        await newOrder.save({ session });
+            console.log('Cart User in create order: ', cartUser)
+            const total = cartUser.items.reduce((sum, item) => {
+                return sum + item.product.price * item.quantity
+            }, 0)
 
-        await session.commitTransaction();
-        session.endSession();
+            for (const item of cartUser.items) {
+                console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
+                await productService.decreaseStock(item.product._id, item.quantity, session)
+            }
+
+            newOrder = new Order({
+                user: userId,
+                items: cartUser.items.map(item => ({
+                    productId: item.product._id,
+                    name: item.product.name,
+                    description: item.product.description,
+                    priceAtPurchase: item.product.price,
+                    quantity: item.quantity
+                })),
+                total,
+                shipping_info: shippingInfo,
+                status: 'pending_payment'
+            })
+
+            await newOrder.save({ session })
+            await clearCartByUserId(userId, session)
+        })
 
         console.log('New Order Created: ', newOrder)
-        return { newOrder };
+        return { newOrder }
 
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
     } finally {
-        session.endSession();
+        await session.endSession()
     }
 }
 
