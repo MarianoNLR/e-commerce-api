@@ -2,18 +2,19 @@ import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 import * as orderService from '../../orderService.js'
 import { AppError } from '../../../errors/AppError.js'
 import dotenv from 'dotenv'
+import { ORDER_STATUSES } from '../../../lib/orderStatuses.js'
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV}`
 })
 
 export const MP_STATUS_MAP = Object.freeze({
-  approved: 'paid',
-  pending: 'pending_payment',
-  authorized: 'pending_payment',
-  rejected: 'payment_failed',
-  in_process: 'pending_payment',
-  cancelled: 'cancelled'
+  approved: ORDER_STATUSES.PAID,
+  pending: ORDER_STATUSES.PENDING_PAYMENT,
+  authorized: ORDER_STATUSES.PENDING_PAYMENT,
+  rejected: ORDER_STATUSES.PAYMENT_FAILED,
+  in_process: ORDER_STATUSES.PENDING_PAYMENT,
+  cancelled: ORDER_STATUSES.CANCELLED
 })
 // Ver que siga funcionando
 // Desde el front enviar el metodo de pago para que se ejecute el createPayment de este strategy.

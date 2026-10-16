@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose'
 import { PAYMENT_METHOD_VALUES } from '../lib/paymentMethods.js'
+import { ORDER_STATUSES, ORDER_STATUS_VALUES } from '../lib/orderStatuses.js'
 
 const OrderItemSnapshotSchema = new Schema({
   productId: {
@@ -50,8 +51,8 @@ const orderSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ['pending_payment', 'pending_validation', 'paid', 'payment_failed', 'shipped', 'cancelled', 'expired'],
-    default: 'pending_payment'
+    enum: ORDER_STATUS_VALUES,
+    default: ORDER_STATUSES.PENDING_PAYMENT
   },
   proof_of_payment_url: {
     type: String

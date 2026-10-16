@@ -1,15 +1,17 @@
+import { ORDER_STATUSES } from './orderStatuses.js'
+
 export class OrderStateMachine {
     constructor(order) {
         this.order = order;
     }
 
     static validTransitions = {
-        'pending_payment': ['paid', 'cancelled', 'expired', 'payment_failed'],
-        'paid': ['shipped'],
-        'shipped': [],
-        'cancelled': [],
-        'expired': [],
-        'payment_failed': []
+        [ORDER_STATUSES.PENDING_PAYMENT]: [ORDER_STATUSES.PAID, ORDER_STATUSES.CANCELLED, ORDER_STATUSES.EXPIRED, ORDER_STATUSES.PAYMENT_FAILED],
+        [ORDER_STATUSES.PAID]: [ORDER_STATUSES.SHIPPED],
+        [ORDER_STATUSES.SHIPPED]: [],
+        [ORDER_STATUSES.CANCELLED]: [],
+        [ORDER_STATUSES.EXPIRED]: [],
+        [ORDER_STATUSES.PAYMENT_FAILED]: []
     }
 
     canTransitionTo(newStatus) {

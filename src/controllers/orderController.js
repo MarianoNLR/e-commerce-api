@@ -5,21 +5,14 @@ import { accessibleBy } from '@casl/mongoose'
 import { sendSuccess } from '../utils/apiResponse.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
+import { ORDER_STATUSES, ORDER_STATUS_VALUES } from '../lib/orderStatuses.js'
 
 export async function getOrders (req, res, next) {
   try {
     const { status, limit, page } = req.query
     console.log('STATUS IN GET ORDERS CONTROLLER: ', req.query)
     const abilityFilter = accessibleBy(req.ability, 'read').ofType('Order')
-    const allowedStatuses = [
-      'pending_payment',
-      'pending_validation',
-      'paid',
-      'payment_failed',
-      'shipped',
-      'cancelled',
-      'expired'
-    ]
+    const allowedStatuses = ORDER_STATUS_VALUES
 
     let filter = abilityFilter
     if (status && status !== 'all') {
@@ -79,7 +72,7 @@ export async function cancelOrder (req, res, next) {
     const filter = accessibleBy(req.ability, 'cancel').ofType('Order')
     const result = await orderService.updateOrderStatus({
       orderId,
-      status: 'cancelled',
+      status: ORDER_STATUSES.CANCELLED,
       filter
     })
 

@@ -3,6 +3,7 @@ import { MercadoPagoConfig, Payment } from 'mercadopago'
 import * as orderService from '../services/orderService.js'
 import { MP_STATUS_MAP } from '../services/payments/strategies/MercadoPagoStrategy.js'
 import 'dotenv/config'
+import { ORDER_STATUSES } from '../lib/orderStatuses.js'
 
 const { MP_ACCESS_TOKEN } = process.env
 
@@ -24,7 +25,7 @@ export function startReconciliationPayments() {
 
 async function reconcilePayments () {
     // Get all orders with pending payment status
-    const pendingOrders = await Order.find({ status: 'pending_payment' }).limit(50)
+    const pendingOrders = await Order.find({ status: ORDER_STATUSES.PENDING_PAYMENT }).limit(50)
 
     for (const order of pendingOrders) {
         try {

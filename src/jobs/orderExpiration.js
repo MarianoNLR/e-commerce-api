@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import { transitionOrderStatus } from "../services/orderService.js";
+import { ORDER_STATUSES } from '../lib/orderStatuses.js'
 
 export function startOrderExpiration() {
     setInterval(async () => {
@@ -13,7 +14,7 @@ export function startOrderExpiration() {
 
 export async function expirePendingOrders() {
     const expiredOrders = await Order.find({
-        status: 'pending_payment',
+        status: ORDER_STATUSES.PENDING_PAYMENT,
         expires_at: { $lte: new Date() }
     }).select('_id')
 
@@ -21,7 +22,7 @@ export async function expirePendingOrders() {
         try {
             await transitionOrderStatus({
                 orderId: order._id,
-                newStatus: 'expired'
+                newStatus: ORDER_STATUSES.EXPIRED
             })
         } catch (error) {
             // One malformed order or transient database failure must not keep

@@ -9,6 +9,7 @@ import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
 import { PAYMENT_METHODS, isPaymentMethod } from '../lib/paymentMethods.js';
+import { ORDER_STATUSES } from '../lib/orderStatuses.js';
 
 export async function getOrders({ filter, page = 1, limit = 5 }) {
     const skip = (page - 1) * limit;
@@ -93,7 +94,7 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {}, p
                 throw new BadRequestError('Order status changed before the transition could be completed.')
             }
 
-            if (newStatus === 'cancelled' || newStatus === 'payment_failed' || newStatus === 'expired') {
+            if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.PAYMENT_FAILED, ORDER_STATUSES.EXPIRED].includes(newStatus)) {
                 for (const item of order.items) {
                     // Orders keep an item snapshot. If an administrator removed
                     // the current product document, there is no inventory left to
@@ -180,7 +181,7 @@ export async function createOrder({ userId, shippingInfo, paymentMethod }) {
                 total,
                 shipping_info: shippingInfo,
                 payment_method: paymentMethod,
-                status: 'pending_payment'
+                status: ORDER_STATUSES.PENDING_PAYMENT
             })
 
             await newOrder.save({ session })
@@ -209,7 +210,7 @@ export async function getOrderForPayment({ orderId, userId, paymentMethod }) {
         throw new BadRequestError('Payment method does not match the order.')
     }
 
-    if (order.status !== 'pending_payment') {
+    if (order.status !== ORDER_STATUSES.PENDING_PAYMENT) {
         throw new BadRequestError('Order is not available for payment.')
     }
 
@@ -246,7 +247,7 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
         { _id: order._id, ...filter, payment_method: PAYMENT_METHODS.BANK_TRANSFER },
         {
             proof_of_payment_url: uploadResult.secure_url,
-            status: 'pending_validation'
+            status: ORDER_STATUSES.PENDING_VALIDATION
         },
         { new: true }
     )
@@ -270,7 +271,7 @@ export async function processPaymentStatusChange({ order, newStatus, paymentId, 
         paymentId
     })
 
-    if (newStatus === 'paid') {
+    if (newStatus === ORDER_STATUSES.PAID) {
         await clearCartByUserId(userId)
         await sendOrderEmail(updatedOrder)
     }
