@@ -94,7 +94,7 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {}, p
                 throw new BadRequestError('Order status changed before the transition could be completed.')
             }
 
-            if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.PAYMENT_FAILED, ORDER_STATUSES.EXPIRED].includes(newStatus)) {
+            if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.PAYMENT_FAILED, ORDER_STATUSES.PAYMENT_REJECTED, ORDER_STATUSES.EXPIRED].includes(newStatus)) {
                 for (const item of order.items) {
                     // Orders keep an item snapshot. If an administrator removed
                     // the current product document, there is no inventory left to

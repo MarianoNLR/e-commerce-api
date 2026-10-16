@@ -3,6 +3,7 @@ export const ORDER_STATUSES = Object.freeze({
   PENDING_VALIDATION: 'pending_validation',
   PAID: 'paid',
   PAYMENT_FAILED: 'payment_failed',
+  PAYMENT_REJECTED: 'payment_rejected',
   SHIPPED: 'shipped',
   CANCELLED: 'cancelled',
   EXPIRED: 'expired'
