@@ -286,7 +286,7 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
 
 // This function is used to process payment status changes from MercadoPago, 
 // ensuring valid state transitions and handling side effects like stock release and email notifications.
-export async function processPaymentStatusChange({ order, newStatus, paymentId, userId }) {
+export async function processPaymentStatusChange({ order, newStatus, paymentId }) {
     const updatedOrder = await transitionOrderStatus({
         orderId: order._id,
         newStatus,
@@ -294,7 +294,6 @@ export async function processPaymentStatusChange({ order, newStatus, paymentId, 
     })
 
     if (newStatus === ORDER_STATUSES.PAID) {
-        await clearCartByUserId(userId)
         await sendOrderEmail(updatedOrder)
     }
     return updatedOrder;

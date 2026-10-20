@@ -89,8 +89,7 @@ export function createMercadoPagoStrategy({ accessToken }) {
         return orderService.processPaymentStatusChange({
             order,
             newStatus: newStatusOrder,
-            paymentId: id,
-            userId: order.user
+            paymentId: id
         })
     }
 

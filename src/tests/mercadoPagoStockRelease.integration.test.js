@@ -46,6 +46,7 @@ import Cart from '../models/Cart.js'
 import Order from '../models/Order.js'
 import Product from '../models/Product.js'
 import User from '../models/User.js'
+import { sendOrderEmail } from '../emailController/emailController.js'
 
 let mongoServer
 
@@ -72,6 +73,7 @@ afterEach(async () => {
   mpState.transactionAmount = 0
   mpState.externalReference = null
   paymentGetMock.mockClear()
+  vi.mocked(sendOrderEmail).mockClear()
 })
 
 afterAll(async () => {
@@ -134,6 +136,36 @@ async function sendWebhook (paymentId) {
 }
 
 describe('Mercado Pago webhooks that release reserved stock', () => {
+  it('preserves a new cart when a previous order payment is approved', async () => {
+    const { order, product } = await createReservedOrder()
+    expect(await Cart.findOne({ user: order.user })).toBeNull()
+
+    const newProduct = await Product.create({
+      name: 'Producto para una compra posterior',
+      description: 'No pertenece a la orden anterior',
+      price: 75,
+      quantity: 5
+    })
+    const newCart = await Cart.create({
+      user: order.user,
+      items: [{ product: newProduct._id, quantity: 1 }],
+      totalPrice: 75
+    })
+    const cartBeforeWebhook = newCart.toObject()
+    mpState.status = 'approved'
+
+    const response = await sendWebhook('payment-approved-1')
+    const cartAfterWebhook = await Cart.findById(newCart._id)
+    const orderAfterWebhook = await Order.findById(order._id)
+
+    expect(response.status).toBe(201)
+    expect(orderAfterWebhook.status).toBe('paid')
+    expect(orderAfterWebhook.payment_id).toBe('payment-approved-1')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+    expect(vi.mocked(sendOrderEmail)).toHaveBeenCalledOnce()
+    expect(cartAfterWebhook?.toObject()).toEqual(cartBeforeWebhook)
+  })
+
   it('marks a rejected payment as failed and restores its reserved stock', async () => {
     const { order, product } = await createReservedOrder()
 
