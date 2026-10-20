@@ -4,6 +4,8 @@ import { authUser } from '../middlewares/authUser.js'
 import { defineAbilityMiddleware } from '../middlewares/ability.js'
 import { checkAbility } from '../middlewares/checkAbility.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
+import { validate } from '../middlewares/validate.js'
+import { updateOrderSchema } from '../validators/orderSchema.js'
 import { getOrders, getOrderById, updateOrderStatus, updateOrder, cancelOrder, createOrder, uploadPaymentProof } from '../controllers/orderController.js'
 
 const orderRouter = Router()
@@ -29,7 +31,7 @@ orderRouter.post('/', checkAbility('create', 'Order'), createOrder)
 
 orderRouter.post('/:orderId/cancel', checkAbility('cancel', 'Order'), cancelOrder)
 orderRouter.put('/:orderId/status', checkAbility('manage', 'Order'), updateOrderStatus)
-orderRouter.put('/:orderId', checkAbility('manage', 'Order'), updateOrder)
+orderRouter.put('/:orderId', checkAbility('manage', 'Order'), validate(updateOrderSchema), updateOrder)
 
 orderRouter.post('/:orderId/payment_proof', checkAbility('update', 'Order'), (req, res, next) => {
 	paymentProofUpload.single('image')(req, res, (err) => {

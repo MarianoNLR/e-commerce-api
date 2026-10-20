@@ -153,6 +153,70 @@ describe('Order update authorization', () => {
     expect(protectedOrderFields(orderAfterAttempt)).toEqual(protectedOrderFields(orderBeforeAttempt))
   })
 
+  it.each([
+    ['status', { status: 'cancelled' }],
+    ['total', { total: 1 }],
+    ['items', { items: [] }],
+    ['user', { user: new mongoose.Types.ObjectId().toString() }],
+    ['payment method', { payment_method: 'mercadopago' }],
+    ['payment ID', { payment_id: 'injected' }],
+    ['preference ID', { payment_preference_id: 'injected' }],
+    ['payment proof', { proof_of_payment_url: 'https://example.com/injected' }],
+    ['expiration', { expires_at: '2030-01-01T00:00:00.000Z' }],
+    ['MongoDB operator', { $set: { status: 'cancelled' } }],
+    ['dotted field', { 'shipping_info.address': 'Injected address' }],
+    ['unexpected nested field', { shipping_info: { ...shippingInfo, status: 'cancelled' } }],
+    ['mixed allowed and protected fields', { shipping_info: shippingInfo, status: 'cancelled' }]
+  ])('rejects an administrator changing %s through the generic endpoint', async (_label, payload) => {
+    const admin = await createUser('Admin', 'admin')
+    const customer = await createUser('Customer')
+    const order = await createPendingOrder(customer)
+    const before = (await Order.findById(order._id)).toObject()
+
+    const response = await request(app)
+      .put(`/api/v1/orders/${order._id}`)
+      .set('Authorization', `Bearer ${createToken(admin)}`)
+      .send(payload)
+
+    expect(response.status).toBe(400)
+    expect((await Order.findById(order._id)).toObject()).toEqual(before)
+  })
+
+  it('allows an administrator to update shipping information through the generic endpoint', async () => {
+    const admin = await createUser('Admin', 'admin')
+    const customer = await createUser('Customer')
+    const order = await createPendingOrder(customer)
+    const updatedShipping = { ...shippingInfo, address: 'Nueva direccion 456' }
+
+    const response = await request(app)
+      .put(`/api/v1/orders/${order._id}`)
+      .set('Authorization', `Bearer ${createToken(admin)}`)
+      .send({ shipping_info: updatedShipping })
+
+    expect(response.status).toBe(200)
+    expect((await Order.findById(order._id)).shipping_info.address).toBe(updatedShipping.address)
+  })
+
+  it.each([
+    ['missing required field', { ...shippingInfo, address: undefined }],
+    ['empty required field', { ...shippingInfo, address: '' }],
+    ['incorrect field type', { ...shippingInfo, phone: 12345 }],
+    ['non-object shipping information', 'invalid']
+  ])('rejects %s without changing the order', async (_label, shippingInfoInput) => {
+    const admin = await createUser('Admin', 'admin')
+    const customer = await createUser('Customer')
+    const order = await createPendingOrder(customer)
+    const before = (await Order.findById(order._id)).toObject()
+
+    const response = await request(app)
+      .put(`/api/v1/orders/${order._id}`)
+      .set('Authorization', `Bearer ${createToken(admin)}`)
+      .send({ shipping_info: shippingInfoInput })
+
+    expect(response.status).toBe(400)
+    expect((await Order.findById(order._id)).toObject()).toEqual(before)
+  })
+
   it.each(['paid', 'shipped'])('rejects a user forcing the %s status on a pending order', async (status) => {
     const userA = await createUser('User A')
     const order = await createPendingOrder(userA)
@@ -202,7 +266,7 @@ describe('Order update authorization', () => {
   it('allows a moderator to update an order status through the staff endpoint', async () => {
     const moderator = await createUser('Moderator', 'moderator')
     const customer = await createUser('Customer')
-    const order = await createPendingOrder(customer)
+    const order = await createPendingOrder(customer, { payment_method: 'mercadopago' })
 
     const response = await request(app)
       .put(`/api/v1/orders/${order._id}/status`)

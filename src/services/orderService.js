@@ -129,7 +129,11 @@ export async function transitionOrderStatus({ orderId, newStatus, filter = {}, p
 // }
 
 export async function updateOrder(orderId, updateData) {
-    const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
+    const order = await Order.findByIdAndUpdate(
+        orderId,
+        { $set: { shipping_info: updateData.shipping_info } },
+        { new: true, runValidators: true }
+    );
     if (!order) {
         throw new NotFoundError('Order not found.');   
     }
@@ -241,10 +245,14 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
         throw new BadRequestError('Payment proof is only available for bank transfers.')
     }
 
+    if (order.status !== ORDER_STATUSES.PENDING_PAYMENT) {
+        throw new BadRequestError('Order is not available for payment proof.')
+    }
+
     const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
 
     const updatedOrder = await Order.findOneAndUpdate(
-        { _id: order._id, ...filter, payment_method: PAYMENT_METHODS.BANK_TRANSFER },
+        { _id: order._id, ...filter, payment_method: PAYMENT_METHODS.BANK_TRANSFER, status: ORDER_STATUSES.PENDING_PAYMENT },
         {
             proof_of_payment_url: uploadResult.secure_url,
             status: ORDER_STATUSES.PENDING_VALIDATION

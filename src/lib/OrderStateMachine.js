@@ -1,4 +1,5 @@
 import { ORDER_STATUSES } from './orderStatuses.js'
+import { PAYMENT_METHODS } from './paymentMethods.js'
 
 export class OrderStateMachine {
     constructor(order) {
@@ -17,6 +18,11 @@ export class OrderStateMachine {
     }
 
     canTransitionTo(newStatus) {
+        if (this.order.payment_method === PAYMENT_METHODS.BANK_TRANSFER &&
+            this.order.status === ORDER_STATUSES.PENDING_PAYMENT &&
+            newStatus === ORDER_STATUSES.PAID) {
+            return false
+        }
         return OrderStateMachine.validTransitions[this.order.status]?.includes(newStatus) ?? false;
     }
 }
