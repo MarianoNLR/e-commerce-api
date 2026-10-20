@@ -48,7 +48,7 @@ export function createMercadoPagoStrategy({ accessToken }) {
         external_reference: order._id,
         expires: true,
         expiration_date_from: new Date(),
-        expiration_date_to: new Date(Date.now() + 30 * 60 * 1000)
+        expiration_date_to: order.expires_at
       }
     })
 

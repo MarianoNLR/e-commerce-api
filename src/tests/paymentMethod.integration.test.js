@@ -151,6 +151,65 @@ describe('Payment method persistence and validation', () => {
     expect(orderAfterPreference.payment_preference_id).toBe('pref_payment_method_test')
   })
 
+  it('sets the Mercado Pago preference expiration to the order expiration', async () => {
+    const { token } = await createCheckoutFixture()
+    const orderResponse = await createOrderThroughApi(token, 'mercadopago')
+    const orderId = orderResponse.body.data.newOrder.id
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    await Order.findByIdAndUpdate(orderId, { expires_at: expiresAt })
+
+    const response = await request(app)
+      .post('/api/v1/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ order_id: orderId, payment_method: 'mercadopago' })
+
+    expect(response.status).toBe(200)
+    expect(preferenceCreateMock).toHaveBeenCalledOnce()
+    expect(new Date(preferenceCreateMock.mock.calls[0][0].body.expiration_date_to).getTime()).toBe(expiresAt.getTime())
+  })
+
+  it('reuses an existing preference while the order is still valid', async () => {
+    const { token } = await createCheckoutFixture()
+    const orderResponse = await createOrderThroughApi(token, 'mercadopago')
+    const orderId = orderResponse.body.data.newOrder.id
+    await Order.findByIdAndUpdate(orderId, { payment_preference_id: 'existing-preference' })
+
+    const response = await request(app)
+      .post('/api/v1/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ order_id: orderId, payment_method: 'mercadopago' })
+
+    expect(response.status).toBe(200)
+    expect(response.body.data.result.id).toBe('existing-preference')
+    expect(preferenceCreateMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['bank_transfer', false],
+    ['mercadopago', false],
+    ['mercadopago', true]
+  ])('rejects starting %s payment after expiration (existing preference: %s)', async (paymentMethod, hasPreference) => {
+    const { token, product } = await createCheckoutFixture()
+    const orderResponse = await createOrderThroughApi(token, paymentMethod)
+    const orderId = orderResponse.body.data.newOrder.id
+    await Order.findByIdAndUpdate(orderId, {
+      expires_at: new Date(Date.now() - 60_000),
+      ...(hasPreference ? { payment_preference_id: 'existing-preference' } : {})
+    })
+
+    const response = await request(app)
+      .post('/api/v1/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ order_id: orderId, payment_method: paymentMethod })
+
+    const order = await Order.findById(orderId)
+    expect(response.status).toBe(400)
+    expect(order.status).toBe('pending_payment')
+    expect(order.payment_preference_id).toBe(hasPreference ? 'existing-preference' : undefined)
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+    expect(preferenceCreateMock).not.toHaveBeenCalled()
+  })
+
   it('rejects a Mercado Pago preference request for a bank-transfer order', async () => {
     const { token } = await createCheckoutFixture()
     const orderResponse = await createOrderThroughApi(token, 'bank_transfer')

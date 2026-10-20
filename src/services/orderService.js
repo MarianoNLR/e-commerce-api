@@ -218,6 +218,10 @@ export async function getOrderForPayment({ orderId, userId, paymentMethod }) {
         throw new BadRequestError('Order is not available for payment.')
     }
 
+    if (!order.expires_at || order.expires_at.getTime() <= Date.now()) {
+        throw new BadRequestError('Order has expired.')
+    }
+
     return order
 }
 
@@ -249,10 +253,20 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
         throw new BadRequestError('Order is not available for payment proof.')
     }
 
+    if (!order.expires_at || order.expires_at.getTime() <= Date.now()) {
+        throw new BadRequestError('Order has expired.')
+    }
+
     const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
 
     const updatedOrder = await Order.findOneAndUpdate(
-        { _id: order._id, ...filter, payment_method: PAYMENT_METHODS.BANK_TRANSFER, status: ORDER_STATUSES.PENDING_PAYMENT },
+        {
+            _id: order._id,
+            ...filter,
+            payment_method: PAYMENT_METHODS.BANK_TRANSFER,
+            status: ORDER_STATUSES.PENDING_PAYMENT,
+            expires_at: { $gt: new Date() }
+        },
         {
             proof_of_payment_url: uploadResult.secure_url,
             status: ORDER_STATUSES.PENDING_VALIDATION
@@ -261,7 +275,7 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
     )
 
     if (!updatedOrder) {
-        throw new NotFoundError('Order not found.')
+        throw new BadRequestError('Order is no longer available for payment proof.')
     }
 
     return {

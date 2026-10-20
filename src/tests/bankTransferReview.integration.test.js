@@ -110,6 +110,45 @@ async function uploadProof (orderId, token) {
 }
 
 describe('Bank transfer review lifecycle', () => {
+  it.each(['customerToken', 'adminToken'])('rejects an expired proof from %s before the cron runs', async (tokenField) => {
+    const fixture = await createTransferFixture()
+    const { product, orderId } = fixture
+    await Order.findByIdAndUpdate(orderId, { expires_at: new Date(Date.now() - 60_000) })
+
+    const response = await uploadProof(orderId, fixture[tokenField])
+    const order = await Order.findById(orderId)
+
+    expect(response.status).toBe(400)
+    expect(order.status).toBe('pending_payment')
+    expect(order.proof_of_payment_url).toBeUndefined()
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+    expect(uploadToCloudinaryMock).not.toHaveBeenCalled()
+
+    await expirePendingOrders()
+    expect((await Order.findById(orderId)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+  })
+
+  it('does not accept a proof when the order expires while the file is uploading', async () => {
+    const { product, orderId, customerToken } = await createTransferFixture()
+    uploadToCloudinaryMock.mockImplementationOnce(async () => {
+      await Order.findByIdAndUpdate(orderId, { expires_at: new Date(Date.now() - 60_000) })
+      return { secure_url: 'https://cloudinary.test/payment-proof.png' }
+    })
+
+    const response = await uploadProof(orderId, customerToken)
+    const order = await Order.findById(orderId)
+
+    expect(response.status).toBe(400)
+    expect(order.status).toBe('pending_payment')
+    expect(order.proof_of_payment_url).toBeUndefined()
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+
+    await expirePendingOrders()
+    expect((await Order.findById(orderId)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+  })
+
   it('does not allow an administrator to approve a transfer before a proof is submitted', async () => {
     const { product, orderId, adminToken } = await createTransferFixture()
 
