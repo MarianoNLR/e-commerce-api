@@ -4,6 +4,9 @@ import { ORDER_STATUSES } from '../lib/orderStatuses.js'
 import { PAYMENT_METHODS } from '../lib/paymentMethods.js'
 import { getPaymentStrategy } from '../services/payments/paymentRegistry.js'
 
+// A provider outage should delay expiration briefly, but never reserve stock forever.
+const PROVIDER_CHECK_GRACE_MS = Number(process.env.ORDER_EXPIRATION_PROVIDER_GRACE_MS) || 15 * 60 * 1000
+
 export function startOrderExpiration() {
     setInterval(async () => {
         try {
@@ -18,16 +21,27 @@ export async function expirePendingOrders() {
     const expiredOrders = await Order.find({
         status: ORDER_STATUSES.PENDING_PAYMENT,
         expires_at: { $lte: new Date() }
-    }).select('_id payment_id payment_method')
+    }).select('_id payment_id payment_method expires_at')
 
     for (const order of expiredOrders) {
         try {
-            if (order.payment_method === PAYMENT_METHODS.MERCADO_PAGO && order.payment_id) {
-                // A failed or ambiguous provider lookup leaves the reservation in place for the next run.
-                const current = await getPaymentStrategy(PAYMENT_METHODS.MERCADO_PAGO).processPayment({
-                    paymentId: order.payment_id, expectedOrderId: order._id
-                })
-                if (current.status !== ORDER_STATUSES.PENDING_PAYMENT) continue
+            if (order.payment_method === PAYMENT_METHODS.MERCADO_PAGO) {
+                try {
+                    const strategy = getPaymentStrategy(PAYMENT_METHODS.MERCADO_PAGO)
+                    const current = order.payment_id
+                        ? await strategy.processPayment({ paymentId: order.payment_id, expectedOrderId: order._id })
+                        : await strategy.processApprovedPaymentForOrder({ orderId: order._id })
+                    if (current && current.status !== ORDER_STATUSES.PENDING_PAYMENT) continue
+                } catch (error) {
+                    const graceEndsAt = new Date(order.expires_at.getTime() + PROVIDER_CHECK_GRACE_MS)
+                    if (new Date() < graceEndsAt) {
+                        // Keep the reservation while retries can still verify the payment safely.
+                        console.error(`Could not verify payment for order ${order._id}; retrying before ${graceEndsAt.toISOString()}:`, error)
+                        continue
+                    }
+                    // The grace period is over: release stock and rely on a later webhook to create an incident.
+                    console.error(`Could not verify payment for order ${order._id} before the grace period ended:`, error)
+                }
             }
             await transitionOrderStatus({
                 orderId: order._id,

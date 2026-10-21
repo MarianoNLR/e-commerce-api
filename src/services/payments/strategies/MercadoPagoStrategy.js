@@ -142,9 +142,21 @@ export function createMercadoPagoStrategy({ accessToken }) {
         }
     }
 
+    async function processApprovedPaymentForOrder({ orderId }) {
+        // The webhook can be missed, so discover approved payments from the order reference.
+        const result = await payment.search({
+            options: { external_reference: String(orderId), status: 'approved', limit: 1 }
+        })
+        const paymentId = result?.results?.[0]?.id
+        if (!paymentId) return null
+
+        return await processPayment({ paymentId, expectedOrderId: orderId })
+    }
+
   return {
     createPayment,
     handleWebhook,
-    processPayment
+    processPayment,
+    processApprovedPaymentForOrder
   }
 }

@@ -7,7 +7,8 @@ import jwt from 'jsonwebtoken'
 const mpState = vi.hoisted(() => ({
   status: 'rejected',
   transactionAmount: 0,
-  externalReference: null
+  externalReference: null,
+  searchResults: []
 }))
 
 const paymentGetMock = vi.hoisted(() =>
@@ -17,6 +18,10 @@ const paymentGetMock = vi.hoisted(() =>
     id: String(id),
     external_reference: mpState.externalReference
   }))
+)
+
+const paymentSearchMock = vi.hoisted(() =>
+  vi.fn(async () => ({ results: mpState.searchResults }))
 )
 
 vi.mock('mercadopago', () => ({
@@ -33,6 +38,10 @@ vi.mock('mercadopago', () => ({
 
     async get (payload) {
       return await paymentGetMock(payload)
+    }
+
+    async search (payload) {
+      return await paymentSearchMock(payload)
     }
   }
 }))
@@ -77,7 +86,9 @@ afterEach(async () => {
   mpState.status = 'rejected'
   mpState.transactionAmount = 0
   mpState.externalReference = null
+  mpState.searchResults = []
   paymentGetMock.mockClear()
+  paymentSearchMock.mockClear()
   vi.mocked(sendOrderEmail).mockClear()
 })
 
@@ -156,6 +167,35 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
     expect(current.payment_id).toBe('pending-then-approved')
   })
 
+  it('finds an approved payment by order reference before expiring an order without a payment ID', async () => {
+    const { order, product } = await createReservedOrder()
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    mpState.status = 'approved'
+    mpState.searchResults = [{ id: 'discovered-approved-payment' }]
+    await expirePendingOrders()
+    const current = await Order.findById(order._id)
+    expect(current.status).toBe('paid')
+    expect(current.payment_id).toBe('discovered-approved-payment')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+  })
+
+  it('expires an order when no approved payment is found by its order reference', async () => {
+    const { order, product } = await createReservedOrder()
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+  })
+
+  it('keeps the reservation during the grace period when payment search fails', async () => {
+    const { order, product } = await createReservedOrder()
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    paymentSearchMock.mockRejectedValueOnce(new Error('Provider unavailable'))
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('pending_payment')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+  })
+
   it.each(['approved', 'pending', 'rejected', 'cancelled'])('checks a referenced %s payment before expiring the order', async (status) => {
     const { order, product } = await createReservedOrder()
     mpState.status = 'pending'
@@ -177,6 +217,17 @@ describe('Mercado Pago webhooks that release reserved stock', () => {
     await expirePendingOrders()
     expect((await Order.findById(order._id)).status).toBe('pending_payment')
     expect((await Product.findById(product._id)).quantity).toBe(8)
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+  })
+
+  it('releases stock when the provider remains unavailable after the expiration grace period', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('unavailable-after-grace')
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 16 * 60 * 1000) })
+    paymentGetMock.mockRejectedValueOnce(new Error('Provider unavailable'))
     await expirePendingOrders()
     expect((await Order.findById(order._id)).status).toBe('expired')
     expect((await Product.findById(product._id)).quantity).toBe(10)
