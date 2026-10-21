@@ -3,6 +3,9 @@ import * as orderService from '../../orderService.js'
 import { AppError } from '../../../errors/AppError.js'
 import dotenv from 'dotenv'
 import { ORDER_STATUSES } from '../../../lib/orderStatuses.js'
+import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js'
+import { BadRequestError } from '../../../errors/BadRequestError.js'
+import { recordExpiredPayment } from '../../paymentIncidentService.js'
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV}`
@@ -73,7 +76,9 @@ export function createMercadoPagoStrategy({ accessToken }) {
 
         const order = await orderService.getOrderById(externalReference)
 
-        if (order.payment_id === id) return order
+        if (order.payment_method !== PAYMENT_METHODS.MERCADO_PAGO) {
+            throw new AppError('Payment method does not match the order.', 400)
+        }
 
         if (order.total !== transaction_amount) {
             throw new AppError('Payment amount mismatch.', 400)
@@ -84,13 +89,33 @@ export function createMercadoPagoStrategy({ accessToken }) {
             throw new AppError('Unknown payment status.', 400)
         }
 
-        if (order.status === newStatusOrder) return order
+        // Stock was already released: record the payment for review without reactivating the order.
+        if (newStatusOrder === ORDER_STATUSES.PAID && order.status === ORDER_STATUSES.EXPIRED) {
+            return recordExpiredPayment({ order, paymentId: id, amount: transaction_amount })
+        }
 
-        return orderService.processPaymentStatusChange({
-            order,
-            newStatus: newStatusOrder,
-            paymentId: id
-        })
+        // A payment can change status; skip processing only if the order already reflects it.
+        // For pending_payment, this does not yet save the pending payment ID.
+        if (order.status === newStatusOrder) {
+            if (newStatusOrder === ORDER_STATUSES.PAID && String(order.payment_id) !== String(id)) {
+                throw new AppError('A different payment is already associated with this order.', 400)
+            }
+            return order
+        }
+
+        try {
+            return await orderService.processPaymentStatusChange({ order, newStatus: newStatusOrder, paymentId: id })
+        } catch (error) {
+            // The order may have changed since the initial read, for example due to the expiration job.
+            if (!(error instanceof BadRequestError) || newStatusOrder !== ORDER_STATUSES.PAID) throw error
+            const currentOrder = await orderService.getOrderById(order._id)
+            if (currentOrder.status === ORDER_STATUSES.EXPIRED) {
+                return recordExpiredPayment({ order: currentOrder, paymentId: id, amount: transaction_amount })
+            }
+            // Another notification for the same payment may have confirmed the order first.
+            if (currentOrder.status === ORDER_STATUSES.PAID && String(currentOrder.payment_id) === String(id)) return currentOrder
+            throw error
+        }
     }
 
   return {
