@@ -1,17 +1,7 @@
 import Order from '../models/Order.js'
-import { MercadoPagoConfig, Payment } from 'mercadopago'
-import * as orderService from '../services/orderService.js'
-import { MP_STATUS_MAP } from '../services/payments/strategies/MercadoPagoStrategy.js'
-import 'dotenv/config'
 import { ORDER_STATUSES } from '../lib/orderStatuses.js'
-
-const { MP_ACCESS_TOKEN } = process.env
-
-const client = new MercadoPagoConfig({
-  accessToken: MP_ACCESS_TOKEN
-})
-
-const payment = new Payment(client)
+import { PAYMENT_METHODS } from '../lib/paymentMethods.js'
+import { getPaymentStrategy } from '../services/payments/paymentRegistry.js'
 
 export function startReconciliationPayments() {
     setInterval(async () => {
@@ -23,37 +13,21 @@ export function startReconciliationPayments() {
     }, 5 * 60 * 1000)
 }
 
-async function reconcilePayments () {
-    // Get all orders with pending payment status
-    const pendingOrders = await Order.find({ status: ORDER_STATUSES.PENDING_PAYMENT }).limit(50)
+export async function reconcilePayments() {
+    const pendingOrders = await Order.find({
+        status: ORDER_STATUSES.PENDING_PAYMENT,
+        payment_method: PAYMENT_METHODS.MERCADO_PAGO,
+        payment_id: { $exists: true, $ne: null }
+    }).limit(50)
 
     for (const order of pendingOrders) {
         try {
-            const paymentRef = order.payment_id
-            if (!paymentRef) {
-                console.warn(`Order ${order._id} has pending payment but no payment reference.`)
-                continue
-            }
-
-            const paymentData = await payment.get({ id: paymentRef })
-            if (!paymentData) {
-                console.warn(`Payment with ID ${paymentRef} not found for order ${order._id}.`)
-                continue
-            }
-
-            //const newStatus = MP_STATUS_MAP[paymentData.status]
-            //if (!newStatus) {
-            //    console.warn(`Unrecognized payment status '${paymentData.status}' for order ${order._id}.`)
-            //    continue
-            //}
-
-            //if (order.status === newStatus || newStatus === 'pending_payment') {
-            //    continue
-            //}
-
-            //await orderService.processPaymentStatusChange({ order, newStatus, paymentId: paymentRef, userId: order.user })
+            // Reuse webhook validation and transitions so retries share the same rules.
+            await getPaymentStrategy(PAYMENT_METHODS.MERCADO_PAGO).processPayment({
+                paymentId: order.payment_id, expectedOrderId: order._id
+            })
         } catch (error) {
-            console.error(`Error processing payment for order ${order._id}:`, error)
+            console.error(`Error reconciling payment for order ${order._id}:`, error)
         }
     }
 }

@@ -51,6 +51,7 @@ import PaymentIncident from '../models/PaymentIncident.js'
 import { transitionOrderStatus } from '../services/orderService.js'
 import * as orderService from '../services/orderService.js'
 import { expirePendingOrders } from '../jobs/orderExpiration.js'
+import { reconcilePayments } from '../jobs/reconcilePayments.js'
 
 let mongoServer
 
@@ -140,6 +141,89 @@ async function sendWebhook (paymentId) {
 }
 
 describe('Mercado Pago webhooks that release reserved stock', () => {
+  it('stores a pending payment reference and later approves the same payment', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    expect((await sendWebhook('pending-then-approved')).status).toBe(201)
+    let current = await Order.findById(order._id)
+    expect(current.status).toBe('pending_payment')
+    expect(current.payment_id).toBe('pending-then-approved')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+    mpState.status = 'approved'
+    expect((await sendWebhook('pending-then-approved')).status).toBe(201)
+    current = await Order.findById(order._id)
+    expect(current.status).toBe('paid')
+    expect(current.payment_id).toBe('pending-then-approved')
+  })
+
+  it.each(['approved', 'pending', 'rejected', 'cancelled'])('checks a referenced %s payment before expiring the order', async (status) => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('check-before-expiry')
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    mpState.status = status
+    await expirePendingOrders()
+    const expected = { approved: 'paid', pending: 'expired', rejected: 'payment_failed', cancelled: 'cancelled' }
+    expect((await Order.findById(order._id)).status).toBe(expected[status])
+    expect((await Product.findById(product._id)).quantity).toBe(status === 'approved' ? 8 : 10)
+  })
+
+  it('keeps the reservation when the provider lookup fails at expiration', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('unavailable-payment')
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    paymentGetMock.mockRejectedValueOnce(new Error('Provider unavailable'))
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('pending_payment')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+  })
+
+  it('records an incident if a pending payment is approved after the expiration check', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('approved-after-check')
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    await expirePendingOrders()
+    mpState.status = 'approved'
+    expect((await sendWebhook('approved-after-check')).status).toBe(201)
+    expect((await Order.findById(order._id)).status).toBe('expired')
+    expect((await Product.findById(product._id)).quantity).toBe(10)
+    expect(await PaymentIncident.countDocuments({ payment_id: 'approved-after-check' })).toBe(1)
+  })
+
+  it('keeps the reservation when the provider returns a payment for another order', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('wrong-order-reference')
+    await Order.findByIdAndUpdate(order._id, { expires_at: new Date(Date.now() - 60000) })
+    mpState.externalReference = new mongoose.Types.ObjectId().toString()
+    await expirePendingOrders()
+    expect((await Order.findById(order._id)).status).toBe('pending_payment')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+  })
+
+  it('reconciles a known pending payment that was approved without a webhook', async () => {
+    const { order, product } = await createReservedOrder()
+    mpState.status = 'pending'
+    await sendWebhook('reconcile-approved')
+    mpState.status = 'approved'
+    await reconcilePayments()
+    expect((await Order.findById(order._id)).status).toBe('paid')
+    expect((await Product.findById(product._id)).quantity).toBe(8)
+  })
+
+  it('does not replace a different pending payment reference', async () => {
+    const { order } = await createReservedOrder()
+    mpState.status = 'pending'
+    expect((await sendWebhook('first-pending')).status).toBe(201)
+    expect((await sendWebhook('second-pending')).status).toBe(400)
+    expect((await Order.findById(order._id)).payment_id).toBe('first-pending')
+  })
+
   it('records a late approved payment once without changing the expired order or its stock', async () => {
     const { order, product } = await createReservedOrder()
     await transitionOrderStatus({ orderId: order._id, newStatus: 'expired' })

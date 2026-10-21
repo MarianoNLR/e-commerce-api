@@ -6,6 +6,7 @@ import { ORDER_STATUSES } from '../../../lib/orderStatuses.js'
 import { PAYMENT_METHODS } from '../../../lib/paymentMethods.js'
 import { BadRequestError } from '../../../errors/BadRequestError.js'
 import { recordExpiredPayment } from '../../paymentIncidentService.js'
+import Order from '../../../models/Order.js'
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV}`
@@ -69,10 +70,23 @@ export function createMercadoPagoStrategy({ accessToken }) {
         if (eventType !== 'payment') return
 
         const paymentId = paymentInfo['data.id'] || paymentInfo.id
+        return processPayment({ paymentId })
+    }
+
+    async function processPayment({ paymentId, expectedOrderId }) {
         const paymentData = await payment.get({ id: paymentId })
+
+        if (!paymentData || !paymentData.id || String(paymentData.id) !== String(paymentId)) {
+            throw new AppError('Payment not found or payment ID mismatch.', 400)
+        }
 
         const { status, transaction_amount, id } = paymentData
         const externalReference = paymentData.external_reference
+
+        // Jobs must not process a payment that points to a different order.
+        if (expectedOrderId && String(externalReference) !== String(expectedOrderId)) {
+            throw new AppError('Payment order reference mismatch.', 400)
+        }
 
         const order = await orderService.getOrderById(externalReference)
 
@@ -94,8 +108,18 @@ export function createMercadoPagoStrategy({ accessToken }) {
             return recordExpiredPayment({ order, paymentId: id, amount: transaction_amount })
         }
 
+        // Store a pending reference without overwriting another payment or a terminal order.
+        if (order.status === ORDER_STATUSES.PENDING_PAYMENT && newStatusOrder === ORDER_STATUSES.PENDING_PAYMENT) {
+            const updated = await Order.findOneAndUpdate(
+                { _id: order._id, status: ORDER_STATUSES.PENDING_PAYMENT, $or: [{ payment_id: null }, { payment_id: String(id) }] },
+                { $set: { payment_id: String(id) } },
+                { new: true }
+            )
+            if (!updated) throw new AppError('Order changed or another payment is already associated.', 400)
+            return updated
+        }
+
         // A payment can change status; skip processing only if the order already reflects it.
-        // For pending_payment, this does not yet save the pending payment ID.
         if (order.status === newStatusOrder) {
             if (newStatusOrder === ORDER_STATUSES.PAID && String(order.payment_id) !== String(id)) {
                 throw new AppError('A different payment is already associated with this order.', 400)
@@ -120,6 +144,7 @@ export function createMercadoPagoStrategy({ accessToken }) {
 
   return {
     createPayment,
-    handleWebhook
+    handleWebhook,
+    processPayment
   }
 }
