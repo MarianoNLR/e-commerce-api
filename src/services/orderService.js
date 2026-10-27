@@ -1,15 +1,15 @@
 import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
-import Product from '../models/Product.js';
 import * as productService from './productService.js';
 import { clearCartByUserId } from './cartService.js';
 import { NotFoundError } from '../errors/NotFoundError.js';
 import { BadRequestError } from '../errors/BadRequestError.js';
-import { AppError } from '../errors/AppError.js';
 import mongoose from 'mongoose';
 import { sendOrderEmail } from '../emailController/emailController.js';
 import { OrderStateMachine } from '../lib/OrderStateMachine.js';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
+import { PAYMENT_METHODS, isPaymentMethod } from '../lib/paymentMethods.js';
+import { ORDER_STATUSES } from '../lib/orderStatuses.js';
 
 export async function getOrders({ filter, page = 1, limit = 5 }) {
     const skip = (page - 1) * limit;
@@ -42,11 +42,73 @@ export async function getOrderById(orderId, filter) {
 }
 
 export async function updateOrderStatus({ orderId, status, filter }) {
-    const order = await Order.findOneAndUpdate({_id: orderId, ...filter}, { status }, { new: true });
-    if (!order) {
-        throw new NotFoundError('Order not found.'); 
+    const order = await transitionOrderStatus({
+        orderId,
+        newStatus: status,
+        filter
+    })
+
+    return { order }
+}
+
+/**
+ * Applies an order status transition and its inventory side effects atomically.
+ *
+ * Cancellations, failed payments, and expirations release the inventory
+ * reserved when the order was created.
+ * The conditional update makes a repeated request observe the terminal status
+ * instead of returning the same inventory twice.
+ */
+export async function transitionOrderStatus({ orderId, newStatus, filter = {}, paymentId }) {
+    const session = await mongoose.startSession()
+
+    try {
+        let updatedOrder
+
+        await session.withTransaction(async () => {
+            const order = await Order.findOne({ _id: orderId, ...filter }).session(session)
+
+            if (!order) {
+                throw new NotFoundError('Order not found.')
+            }
+
+            const stateMachine = new OrderStateMachine(order)
+            if (!stateMachine.canTransitionTo(newStatus)) {
+                throw new BadRequestError(`Invalid state transition from ${order.status} to ${newStatus}.`)
+            }
+
+            const statusUpdate = { status: newStatus }
+            if (paymentId !== undefined && paymentId !== null) {
+                statusUpdate.payment_id = paymentId.toString()
+            }
+
+            updatedOrder = await Order.findOneAndUpdate(
+                { _id: order._id, status: order.status },
+                { $set: statusUpdate },
+                { new: true, session }
+            )
+
+            // The transaction may be retried after a concurrent write. Do not
+            // release stock unless this transaction changed the pending order.
+            if (!updatedOrder) {
+                throw new BadRequestError('Order status changed before the transition could be completed.')
+            }
+
+            if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.PAYMENT_FAILED, ORDER_STATUSES.PAYMENT_REJECTED, ORDER_STATUSES.EXPIRED].includes(newStatus)) {
+                for (const item of order.items) {
+                    // Orders keep an item snapshot. If an administrator removed
+                    // the current product document, there is no inventory left to
+                    // restore for that item. Other database errors must still
+                    // abort the transaction.
+                    await productService.releaseStock(item.productId, item.quantity, session, { ignoreMissing: true })
+                }
+            }
+        })
+
+        return updatedOrder
+    } finally {
+        await session.endSession()
     }
-    return { order };
 }
 
 // export async function payWithMercadoPago({ orderId, status, paymentId }) {
@@ -67,80 +129,106 @@ export async function updateOrderStatus({ orderId, status, filter }) {
 // }
 
 export async function updateOrder(orderId, updateData) {
-    const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
+    const order = await Order.findByIdAndUpdate(
+        orderId,
+        { $set: { shipping_info: updateData.shipping_info } },
+        { new: true, runValidators: true }
+    );
     if (!order) {
         throw new NotFoundError('Order not found.');   
     }
     return { order };
 }
 
-export async function createOrder({ userId, shippingInfo }) {
-    const cartUser = await Cart.findOne({ user: userId }).populate('items.product');
-    if (!cartUser) {
-        throw new NotFoundError('Cart not found.');   
+export async function createOrder({ userId, shippingInfo, paymentMethod }) {
+    if (!isPaymentMethod(paymentMethod)) {
+        throw new BadRequestError('Invalid payment method.')
     }
-    console.log("Cart User in create order: ", cartUser)
-    // Transactional stock update and order creation
+
     const session = await mongoose.startSession();
+
     try {
-        session.startTransaction();
+        let newOrder
 
-        // recalculate total price
-        const total = cartUser.items.reduce((total, item) => {
-            return total + item.product.price * item.quantity;
-        }, 0);
+        await session.withTransaction(async () => {
+            const cartUser = await Cart.findOne({ user: userId })
+                .populate('items.product')
+                .session(session)
 
-        for (const item of cartUser.items) {
-            console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
-
-            const updated = await productService.decreaseStock(item.product._id, item.quantity, session)
-
-            if (!updated) {
-                throw new BadRequestError(`Insufficient stock for product ${item.product.name}`);
+            if (!cartUser) {
+                throw new NotFoundError('Cart not found.')
             }
-        }
 
-        const newOrder = new Order({
-            user: userId,
-            items: cartUser.items.map(item => ({
-                productId: item.product._id,
-                name: item.product.name,
-                description: item.product.description,
-                priceAtPurchase: item.product.price,
-                quantity: item.quantity
-            })),
-            total: total,
-            shipping_info: shippingInfo,
-            status: 'pending_payment'
-        });
+            if (cartUser.items.length === 0) {
+                throw new BadRequestError('Cart must contain at least one item.')
+            }
 
-        // await Cart.findOneAndDelete({ user: userId });
-        await clearCartByUserId(userId)
-        await newOrder.save({ session });
+            console.log('Cart User in create order: ', cartUser)
+            const total = cartUser.items.reduce((sum, item) => {
+                return sum + item.product.price * item.quantity
+            }, 0)
 
-        await session.commitTransaction();
-        session.endSession();
+            for (const item of cartUser.items) {
+                console.log('Decreasing stock for product: ', item.product._id, ' quantity: ', item.quantity)
+                await productService.decreaseStock(item.product._id, item.quantity, session)
+            }
+
+            newOrder = new Order({
+                user: userId,
+                items: cartUser.items.map(item => ({
+                    productId: item.product._id,
+                    name: item.product.name,
+                    description: item.product.description,
+                    priceAtPurchase: item.product.price,
+                    quantity: item.quantity
+                })),
+                total,
+                shipping_info: shippingInfo,
+                payment_method: paymentMethod,
+                status: ORDER_STATUSES.PENDING_PAYMENT
+            })
+
+            await newOrder.save({ session })
+            await clearCartByUserId(userId, session)
+        })
 
         console.log('New Order Created: ', newOrder)
-        return { newOrder };
+        return { newOrder }
 
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
     } finally {
-        session.endSession();
+        await session.endSession()
     }
 }
 
-export async function uploadPaymentProof({ orderId, filter, file }) {
-    const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
+export async function getOrderForPayment({ orderId, userId, paymentMethod }) {
+    if (!isPaymentMethod(paymentMethod)) {
+        throw new BadRequestError('Invalid payment method.')
+    }
 
-    const order = await Order.findOneAndUpdate(
-        { _id: orderId, ...filter },
-        {
-            proof_of_payment_url: uploadResult.secure_url,
-            status: 'pending_validation'
-        },
+    const order = await Order.findOne({ _id: orderId, user: userId })
+    if (!order) {
+        throw new NotFoundError('Order not found.')
+    }
+
+    if (order.payment_method !== paymentMethod) {
+        throw new BadRequestError('Payment method does not match the order.')
+    }
+
+    if (order.status !== ORDER_STATUSES.PENDING_PAYMENT) {
+        throw new BadRequestError('Order is not available for payment.')
+    }
+
+    if (!order.expires_at || order.expires_at.getTime() <= Date.now()) {
+        throw new BadRequestError('Order has expired.')
+    }
+
+    return order
+}
+
+export async function savePaymentPreference({ orderId, preferenceId }) {
+    const order = await Order.findByIdAndUpdate(
+        orderId,
+        { payment_preference_id: preferenceId },
         { new: true }
     )
 
@@ -148,63 +236,64 @@ export async function uploadPaymentProof({ orderId, filter, file }) {
         throw new NotFoundError('Order not found.')
     }
 
+    return order
+}
+
+export async function uploadPaymentProof({ orderId, filter, file }) {
+    const order = await Order.findOne({ _id: orderId, ...filter })
+    if (!order) {
+        throw new NotFoundError('Order not found.')
+    }
+
+    if (order.payment_method !== PAYMENT_METHODS.BANK_TRANSFER) {
+        throw new BadRequestError('Payment proof is only available for bank transfers.')
+    }
+
+    if (order.status !== ORDER_STATUSES.PENDING_PAYMENT) {
+        throw new BadRequestError('Order is not available for payment proof.')
+    }
+
+    if (!order.expires_at || order.expires_at.getTime() <= Date.now()) {
+        throw new BadRequestError('Order has expired.')
+    }
+
+    const uploadResult = await uploadToCloudinary(file.buffer, 'orders/payment_proofs')
+
+    const updatedOrder = await Order.findOneAndUpdate(
+        {
+            _id: order._id,
+            ...filter,
+            payment_method: PAYMENT_METHODS.BANK_TRANSFER,
+            status: ORDER_STATUSES.PENDING_PAYMENT,
+            expires_at: { $gt: new Date() }
+        },
+        {
+            proof_of_payment_url: uploadResult.secure_url,
+            status: ORDER_STATUSES.PENDING_VALIDATION
+        },
+        { new: true }
+    )
+
+    if (!updatedOrder) {
+        throw new BadRequestError('Order is no longer available for payment proof.')
+    }
+
     return {
-        order,
+        order: updatedOrder,
         proof_of_payment_url: uploadResult.secure_url
     }
 }
 
-// This function is used to ensure that only one status update happens for a given payment ID.
-export async function updateOrderStatusConditional({ orderId, newStatus, currentStatus, paymentId }) {
-    //TODO: handle refund case.
-    const updatedOrder = await Order.findOneAndUpdate(
-        { 
-            _id: orderId,
-            status: currentStatus,
-            payment_id: { $ne: paymentId.toString() }
-        },
-        { $set: { 
-            status: newStatus,
-            payment_id: paymentId.toString()
-            } 
-        },
-        { new: true }
-    );
-
-    return updatedOrder;
-}
-
 // This function is used to process payment status changes from MercadoPago, 
 // ensuring valid state transitions and handling side effects like stock release and email notifications.
-export async function processPaymentStatusChange({ order, newStatus, paymentId, userId }) {
-    const stateMachine = new OrderStateMachine(order)
-
-    // Validate state transition
-    if (!stateMachine.canTransitionTo(newStatus)) {
-        console.error(`Invalid state transition from ${order.status} to ${newStatus} for order ID:`, order._id)
-        throw new AppError(`Invalid state transition from ${order.status} to ${newStatus}.`, 400);
-    }
-    
-    const updatedOrder = await updateOrderStatusConditional({ 
-        orderId: order._id, 
-        newStatus, 
-        currentStatus: order.status, 
-        paymentId 
+export async function processPaymentStatusChange({ order, newStatus, paymentId }) {
+    const updatedOrder = await transitionOrderStatus({
+        orderId: order._id,
+        newStatus,
+        paymentId
     })
-    if (!updatedOrder) {
-        // This means the order was not found or it has already been updated with this payment ID (idempotency)
-        console.warn(`Order with ID ${order._id} was already updated with payment ID ${paymentId}. Skipping status update.`)
-        return
-    }
 
-    if (newStatus === 'payment_failed' || newStatus === 'cancelled') {
-        for (const item of order.items) {
-            await productService.releaseStock(item.productId, item.quantity)
-        }
-    }
-
-    if (newStatus === 'paid') {
-        await clearCartByUserId(userId)
+    if (newStatus === ORDER_STATUSES.PAID) {
         await sendOrderEmail(updatedOrder)
     }
     return updatedOrder;

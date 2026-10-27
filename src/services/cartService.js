@@ -72,7 +72,10 @@ export async function deleteItemFromCart(userId, productId) {
     return updatedCart
 }
 
-export async function clearCartByUserId(userId) {
-    const result = await Cart.findOneAndDelete({ user: userId })
+export async function clearCartByUserId(userId, session) {
+    const query = Cart.findOneAndDelete({ user: userId })
+    if (session) query.session(session)
+
+    const result = await query
     return result
 }

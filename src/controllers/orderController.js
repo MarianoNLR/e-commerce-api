@@ -5,21 +5,14 @@ import { accessibleBy } from '@casl/mongoose'
 import { sendSuccess } from '../utils/apiResponse.js'
 import { NotFoundError } from '../errors/NotFoundError.js'
 import { BadRequestError } from '../errors/BadRequestError.js'
+import { ORDER_STATUSES, ORDER_STATUS_VALUES } from '../lib/orderStatuses.js'
 
 export async function getOrders (req, res, next) {
   try {
     const { status, limit, page } = req.query
     console.log('STATUS IN GET ORDERS CONTROLLER: ', req.query)
     const abilityFilter = accessibleBy(req.ability, 'read').ofType('Order')
-    const allowedStatuses = [
-      'pending_payment',
-      'pending_validation',
-      'paid',
-      'payment_failed',
-      'shipped',
-      'cancelled',
-      'expired'
-    ]
+    const allowedStatuses = ORDER_STATUS_VALUES
 
     let filter = abilityFilter
     if (status && status !== 'all') {
@@ -72,6 +65,24 @@ export async function updateOrderStatus (req, res, next) {
   }
 }
 
+export async function cancelOrder (req, res, next) {
+  const { orderId } = req.params
+
+  try {
+    const filter = accessibleBy(req.ability, 'cancel').ofType('Order')
+    const result = await orderService.updateOrderStatus({
+      orderId,
+      status: ORDER_STATUSES.CANCELLED,
+      filter
+    })
+
+    return sendSuccess(res, { order: result }, 200)
+  } catch (error) {
+    console.error('Failed to cancel order:', error)
+    next(error)
+  }
+}
+
 // export async function payWithMercadoPago (req, res, next) {
 //   const { orderId } = req.params
 //   const { status, payment_id: paymentId } = req.body
@@ -110,9 +121,9 @@ export async function updateOrder (req, res, next) {
 
 export async function createOrder (req, res, next) {
   try {
-    const { shipping_info: shippingInfo } = req.body
+    const { shipping_info: shippingInfo, payment_method: paymentMethod } = req.body
     console.log('SHIPPING INFO IN CREATE ORDER: ', shippingInfo)
-    const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo })
+    const newOrder = await orderService.createOrder({ userId: req.user._id, shippingInfo, paymentMethod })
     console.log("NEW ORDER: ", newOrder)
     return sendSuccess(res, newOrder, 201)
   } catch (error) {

@@ -2,6 +2,7 @@ import { AbilityBuilder, createMongoAbility } from '@casl/ability'
 import User from '../models/User.js'
 import Product from '../models/Product.js'
 import Category from '../models/Category.js'
+import { ORDER_STATUSES } from '../lib/orderStatuses.js'
 
 export function defineAbilitiesFor (user) {
   const { can, cannot, build } = new AbilityBuilder(createMongoAbility)
@@ -20,7 +21,8 @@ export function defineAbilitiesFor (user) {
     can('update', 'User', { _id: user.id }) // users can update their own profile
     can('read', 'Category')
     can('create', 'Order')
-    can('update', 'Order', { user: user.id, status: 'pending_payment' }) // users can update their own orders
+    can('update', 'Order', { user: user.id, status: ORDER_STATUSES.PENDING_PAYMENT }) // used by payment-proof upload
+    can('cancel', 'Order', { user: user.id, status: ORDER_STATUSES.PENDING_PAYMENT })
     can('read', 'Order', { user: user._id }) // users can read their own orders
 
     can ('manage', 'Cart', { user: user._id }) // users can manage their own cart
