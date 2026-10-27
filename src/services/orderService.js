@@ -27,7 +27,7 @@ export async function getOrders({ filter, page = 1, limit = 5 }) {
 }
 
 export async function getOrderById(orderId, filter) {
-    const order = await Order.findById({
+    const order = await Order.findOne({
         _id: orderId,
         ...filter
     })
