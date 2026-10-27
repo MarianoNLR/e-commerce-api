@@ -6,6 +6,7 @@ import cartRouter from './cartRoutes.js'
 import categoryRouter from './categoryRoutes.js'
 import checkoutRouter from './checkoutRoutes.js'
 import orderRouter from './orderRoutes.js'
+import paymentIncidentRouter from './paymentIncidentRoutes.js'
 
 const v1Router = Router()
 
@@ -16,5 +17,6 @@ v1Router.use('/cart', cartRouter)
 v1Router.use('/category', categoryRouter)
 v1Router.use('/checkout', checkoutRouter)
 v1Router.use('/orders', orderRouter)
+v1Router.use('/payment-incidents', paymentIncidentRouter)
 
 export default v1Router

@@ -26,7 +26,7 @@ describe("CASL Abilities", () => {
     });
 
     it("should allow regular user to read his own orders", () => {
-        const user = { role: 'user', id: 'user123' };
+        const user = { role: 'user', _id: 'user123' };
         const order = subject('Order', { user: 'user123' });
 
         const ability = defineAbilitiesFor(user);
@@ -35,7 +35,7 @@ describe("CASL Abilities", () => {
     });
 
     it("should not allow regular user to read others' orders", () => {
-        const user = { role: 'user', id: 'user123' };
+        const user = { role: 'user', _id: 'user123' };
         const order = subject('Order', { user: 'user456' });
 
         const ability = defineAbilitiesFor(user);

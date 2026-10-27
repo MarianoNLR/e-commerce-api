@@ -82,6 +82,7 @@ describe("Orders API Integration Tests", () => {
             .post('/api/v1/orders')
             .set("authorization", `Bearer ${token}`)
             .send({
+                payment_method: 'mercadopago',
                 shipping_info: {
                     name: "John",
                     lastName: "Doe",
@@ -95,17 +96,16 @@ describe("Orders API Integration Tests", () => {
                 }
             });
         expect(res.status).toBe(201);
-        expect(res.body.newOrder).toBeDefined();
-        expect(res.body.newOrder.items.length).toBe(2);
-        expect(res.body.newOrder.total).toBe(350);
+        expect(res.body.data.newOrder).toBeDefined();
+        expect(res.body.data.newOrder.items.length).toBe(2);
+        expect(res.body.data.newOrder.total).toBe(350);
 
-        const orderInDb = await Order.findById(res.body.newOrder.id);
+        const orderInDb = await Order.findById(res.body.data.newOrder.id);
         expect(orderInDb).not.toBeNull();
         expect(orderInDb.user.toString()).toBe(user._id.toString());
         expect(orderInDb.status).toBe('pending_payment');
 
         const cartInDb = await Cart.findOne({ user: user._id });
-        expect(cartInDb).not.toBeNull();
-        expect(cartInDb.items.length).toBe(2);
+        expect(cartInDb).toBeNull();
     })
 });
