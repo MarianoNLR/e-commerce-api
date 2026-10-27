@@ -21,9 +21,10 @@ export async function login ({ email, password, userAgent, ipAddress }) {
     if (!passwordMatch) {
         throw new BadRequestError('Email or password incorrect.')
     }
-    const accessToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '15m' })
+    const accessToken = jwt.sign({ userId: user._id, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '15m' })
 
-    const refreshToken = jwt.sign({ userId: user._id}, JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
+    // jti keeps tokens unique when the same user logs in twice within the same second
+    const refreshToken = jwt.sign({ userId: user._id, jti: crypto.randomUUID() }, JWT_REFRESH_TOKEN_SECRET, { expiresIn: '7d' })
     const refrehTokenHashed = crypto.createHash('sha256').update(refreshToken).digest('hex')
 
     await Session.create({
@@ -204,6 +205,7 @@ export async function refreshToken (refreshToken, userAgent, ipAddress) {
 }
 
 export async function logout( refreshToken ) {
+    if (!refreshToken) return
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex')
     await Session.deleteOne({ refreshToken: tokenHash })
 }

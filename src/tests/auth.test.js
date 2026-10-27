@@ -27,6 +27,42 @@ afterAll(async () => {
   await mongoServer.stop()
 }, 20000)
 
+describe('Login', () => {
+  test('simultaneous logins of the same user create independent sessions', async () => {
+    await Session.deleteMany({})
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        request(app)
+          .post('/api/v1/auth/login')
+          .send({ email: 'test@test.com', password: '123456' })
+      )
+    )
+
+    expect(responses.map(res => res.status)).toEqual([200, 200, 200, 200, 200])
+    expect(await Session.countDocuments()).toBe(5)
+  }, 20000)
+
+  test('sets a cross-site refresh token cookie', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'test@test.com', password: '123456' })
+
+    const cookie = res.headers['set-cookie'][0]
+    expect(cookie).toMatch(/^refreshToken=/)
+    expect(cookie).toMatch(/HttpOnly/)
+    expect(cookie).toMatch(/Secure/)
+    expect(cookie).toMatch(/SameSite=None/)
+  }, 20000)
+})
+
+describe('Logout', () => {
+  test('succeeds without a refresh token cookie', async () => {
+    const res = await request(app).post('/api/v1/auth/logout')
+    expect(res.status).toBe(200)
+  })
+})
+
 describe('Refresh Token', () => {
   let cookie
 
