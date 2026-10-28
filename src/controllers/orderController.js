@@ -58,7 +58,7 @@ export async function updateOrderStatus (req, res, next) {
     const filter = accessibleBy(req.ability, 'update').ofType('Order')
     const result = await orderService.updateOrderStatus({ orderId, status, filter })
     
-    return sendSuccess(res, { order: result }, 200)
+    return sendSuccess(res, result, 200)
   } catch (error) {
     console.error('Failed to update order status:', error)
     next(error)
@@ -76,7 +76,7 @@ export async function cancelOrder (req, res, next) {
       filter
     })
 
-    return sendSuccess(res, { order: result }, 200)
+    return sendSuccess(res, result, 200)
   } catch (error) {
     console.error('Failed to cancel order:', error)
     next(error)
