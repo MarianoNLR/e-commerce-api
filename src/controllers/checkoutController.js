@@ -17,6 +17,17 @@ export async function createPayment(req, res, next) {
   }
 }
 
+export async function verifyPayment(req, res, next) {
+  const { userId } = req
+  const { payment_id: paymentId, order_id: orderId } = req.body
+  try {
+    const result = await checkoutService.verifyPayment({ userId, paymentId, orderId })
+    return sendSuccess(res, { result }, 200)
+  } catch (error) {
+    return next(error)
+  }
+}
+
 export const receiveWebhook = async (req, res, next) => {
   console.log('Received webhook with query:', req.query)
   console.log('Received webhook with params:', req.params)
