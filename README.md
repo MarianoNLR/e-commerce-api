@@ -1,3 +1,5 @@
+![CI](https://github.com/MarianoNLR/e-commerce-api/actions/workflows/ci.yml/badge.svg)
+
 # 🛒 E-commerce API – Backend
 
 ## API REST para un sistema de e-commerce. Maneja usuarios, productos, carritos y órdenes, e integra pasarela de pago, Google OAuth2 y envíos de correos.
