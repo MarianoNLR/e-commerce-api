@@ -20,7 +20,17 @@ jobs:
         node-version: [20, 22]
     env:
       NODE_ENV: test
+      # For testing purposes, we provide dummy values to avoid errors during import.
       JWT_SECRET: ci-test-secret
+      JWT_REFRESH_TOKEN_SECRET: ci-test-refresh-secret
+      GOOGLE_CLIENT_ID: ci-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret
+      BASE_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      MP_ACCESS_TOKEN: ci-mp-access-token
+      GMAIL_APP_EMAIL: ci@example.com
+      GMAIL_APP_PASSWORD: ci-gmail-password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
