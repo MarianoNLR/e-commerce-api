@@ -67,10 +67,10 @@ export async function update (req, res, next) {
   const { name, price, quantity, description, imagesToDelete } = req.body
   const { files : newImages } = req
   const productsUpdate = { name, price, quantity, description }
-  
-  const imagesToDeleteFormat = imagesToDelete ? JSON.parse(imagesToDelete) : []
+
   try {
-    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToDelete: imagesToDeleteFormat })
+    // imagesToDelete already arrives parsed (array of public_ids) from validate(updateProductSchema)
+    const result = await productService.update({ productId: id, productsUpdate, newImages, imagesToDelete })
     return sendSuccess(res, { result }, 200)
   } catch (error) {
     console.error('Error updating product:', error)

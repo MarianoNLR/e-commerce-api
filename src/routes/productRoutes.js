@@ -32,34 +32,48 @@ const multerUpload = multer({
   }
 })
 
+const uploadProductImages = (req, res, next) => {
+  multerUpload.array('images')(req, res, (err) => {
+    if (err) return next(new BadRequestError(err.message))
+    next()
+  })
+}
+
+const uploadUpdateImages = (req, res, next) => {
+  multerUpload.array('newImages')(req, res, (err) => {
+    if (err) return next(new BadRequestError(err.message))
+    next()
+  })
+}
+
 const productRouter = express.Router()
 
-productRouter.post('/', (req, res, next) => {
-  multerUpload.array('images')(req, res, (err) => {
-    if (err) {
-      return next(new BadRequestError(err.message))
-    }
-    validate(addProductSchema)
-    productController.add(req, res)
-  })
-})
+productRouter.post(
+  '/',
+  authUser,
+  defineAbilityMiddleware,
+  checkAbility('create', 'Product'),
+  uploadProductImages,
+  validate(addProductSchema),
+  productController.add
+)
 
 productRouter.delete('/:id', authUser, defineAbilityMiddleware, checkAbility('delete', 'Product'), validate(deleteProductSchema), productController.deleteProduct)
 productRouter.get('/product/:productId', validate(getByIdSchema), productController.getById)
 productRouter.get('/search/', validate(getBySearchSchema), productController.getBySearch)
 productRouter.get('/:categoryId', productController.getAll)
 productRouter.get('/', productController.getAll)
-productRouter.put('/:id', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), validate(updateProductSchema), (req, res, next) => {
-  multerUpload.array('newImages')(req, res, (err) => {
-    if (err) {
-      return next(new BadRequestError(err.message))
-    }
-    productController.update(req, res)
-  })
-})
+productRouter.put(
+  '/:id',
+  authUser,
+  defineAbilityMiddleware,
+  checkAbility('update', 'Product'),
+  uploadUpdateImages,
+  validate(updateProductSchema),
+  productController.update
+)
 productRouter.patch('/:id/disable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), productController.softDeleteProduct)
 productRouter.patch('/:id/enable', authUser, defineAbilityMiddleware, checkAbility('update', 'Product'), productController.reactivateProduct)
 productRouter.patch('/stock/:productId', validate(updateProductStockSchema), productController.updateProductStock)
-//productRouter.post('/', authUser, defineAbilityMiddleware, checkAbility('create', 'Product'), add)
 
 export default productRouter
