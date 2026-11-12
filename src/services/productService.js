@@ -132,8 +132,12 @@ export async function update({ productId, productsUpdate, newImages, imagesToDel
     }
 }
 
-async function updateSimpleFields(product, productsUpdate) {
-    Object.assign(product, productsUpdate)
+function updateSimpleFields(product, productsUpdate) {
+    // Skip undefined values: assigning undefined would make Mongoose unset the field
+    const definedFields = Object.fromEntries(
+        Object.entries(productsUpdate).filter(([, value]) => value !== undefined)
+    )
+    Object.assign(product, definedFields)
 }
 
 async function updateProductImages(product, newImages, imagesToDelete) {

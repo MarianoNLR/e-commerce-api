@@ -31,7 +31,22 @@ export const updateProductSchema = z.object({
         price: z.coerce.number().positive("Price must be a positive number").optional(),
         quantity: z.coerce.number().int().nonnegative("Quantity must be a non-negative integer").optional(),
         description: z.string().optional(),
-        imagesToKeep: z.array(z.url("Invalid image URL format")).optional().default([]),
+        // multipart only carries strings: the UI sends a JSON array of Cloudinary public_ids
+        imagesToDelete: z.string().transform((value, ctx) => {
+            let parsed
+            try {
+                parsed = JSON.parse(value)
+            } catch {
+                ctx.addIssue({ code: 'custom', message: 'imagesToDelete must be a valid JSON array' })
+                return z.NEVER
+            }
+            const result = z.array(z.string().min(1)).safeParse(parsed)
+            if (!result.success) {
+                ctx.addIssue({ code: 'custom', message: 'imagesToDelete must be an array of image public IDs' })
+                return z.NEVER
+            }
+            return result.data
+        }).optional().default([]),
     }),
 });
 
