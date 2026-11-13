@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer'
+import MailComposer from 'nodemailer/lib/mail-composer/index.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -51,13 +51,35 @@ const __dirname = path.dirname(__filename)
 //   id: '690bbc82804650ddf4d90bd5'
 // }
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_APP_EMAIL,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-})
+// Render (plan gratuito) bloquea los puertos SMTP, así que enviamos con la API HTTP de Gmail
+async function getAccessToken () {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GMAIL_CLIENT_ID,
+      client_secret: process.env.GMAIL_CLIENT_SECRET,
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+      grant_type: 'refresh_token'
+    })
+  })
+  if (!res.ok) throw new Error(`OAuth ${res.status}: ${await res.text()}`)
+  return (await res.json()).access_token
+}
+
+async function sendWithGmailApi (mailOptions) {
+  const raw = await new MailComposer(mailOptions).compile().build()
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ raw: raw.toString('base64url') })
+  })
+  if (!res.ok) throw new Error(`Gmail API ${res.status}: ${await res.text()}`)
+  return res.json()
+}
 
 const templatePath = path.join(__dirname, 'templates', 'orderEmail.mjml')
 const mjmlTemplate = fs.readFileSync(templatePath, 'utf-8')
@@ -79,8 +101,8 @@ export async function sendOrderEmail (order) {
       subject: 'Detalles de tu Pedido',
       html
     }
-    const info = await transporter.sendMail(mailOptions)
-    console.log('Email sent: ' + info.response)
+    const info = await sendWithGmailApi(mailOptions)
+    console.log('Email sent: ' + info.id)
   } catch (error) {
     console.error('Error sending email: ', error)
   }
